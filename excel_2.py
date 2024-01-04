@@ -370,17 +370,17 @@ for elemento in device_manufacturers_add:
         print(f"{elemento} non presente, lo creo")
         manufacturers_result=nbox.create_manufacturer(elemento, elemento)
         manufacturers_list.append(manufacturers_result)
-
 #print(manufacturers_list)
 
+# Lista con manufacturers e ID associato
 id_man_to_associate = [{'name': manufacturer['display'], 'id': manufacturer['id']} for manufacturer in manufacturers_list]
-print(id_man_to_associate)
+print(json.dumps(id_man_to_associate, indent=4))
 
 
 # CHEK DEVICE TYPE
 # NETBOX 
 device_type_nbox=nbox.get_devices_type()['results']
-print(json.dumps(device_type_nbox, indent=4))
+#print(json.dumps(device_type_nbox, indent=4))
 all_device_type_on_nbox = []
 for item in device_type_nbox:
     device_type = {"device_type": item["display"]}
@@ -400,11 +400,14 @@ to_add = []
 for element1 in all_device_type_on_file:
     if element1 not in all_device_type_on_nbox:
         to_add.append(element1)
+    else: 
+        pass
+#print(to_add)
 size_to_add = len(to_add)
   
 
 to_add_all = [device for device in to_add if all(key in device for key in ['Device Type', 'Manufacturers'])]
-#print(to_add_all)
+print("I Device Type da porvare ad agguingere sono: \n",to_add_all)
 
 manufacturer_id_map = {manufacturer['name']: manufacturer['id'] for manufacturer in id_man_to_associate}
 #print(manufacturer_id_map)

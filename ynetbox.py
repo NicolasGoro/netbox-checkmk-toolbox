@@ -22,7 +22,7 @@ class YNetbox(object):
                                        timeout=timeout,
                                        verify=False, **kwargs)
             
-            print(raw_res.text)
+            #print(raw_res.text)
             raw_res.raise_for_status()
 
             if raw_res.status_code != 204:
