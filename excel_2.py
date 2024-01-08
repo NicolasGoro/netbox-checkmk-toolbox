@@ -275,6 +275,7 @@ if file_extension.lower() == '.xlsx':
 
     # Estrai Location
     locations_add = extract_and_concatenate_unique(path)
+    locations_add=[item for item in locations_add if "_n.d." not in item]
     print("Le Locations trovate sull'Excel sono:\n>",locations_add,"\n")
     print('finita estrazione excel')
 
@@ -316,9 +317,9 @@ for tenants_to_add in tenant_add:
         site_result = nbox.create_tenant(tenants_to_add)
         tenants.append(site_result)
     else:
-        print(f"site {tenants_to_add} già presente")
+        print(f"Tenant {tenants_to_add} già presente")
 pass
-
+print(tenant_id)
 # SITES
 sites = nbox.get_sites()
 for site_to_add in site_add:
@@ -330,6 +331,7 @@ for site_to_add in site_add:
     else:
         print(f"site {site_to_add} già presente")
 pass
+print(site_id)
 
 # LOCATIONS
 locations = nbox.get_locations()
@@ -338,9 +340,10 @@ if "NON_PRESENTE" in snmp_community_location: snmp_community_location.remove("NO
 #print (snmp_community_location)
 for loc_to_add in locations_add:
     location_id = get_id_by_name(locations, loc_to_add)
-    if site_id is None:
+    #print(location_id)
+    if location_id is None:
         print(f"location {loc_to_add} mancante, lo creo")
-        location_result = nbox.create_loction(loc_to_add, site_id, tenant_id, snmp_community_location)
+        location_result = nbox.create_loction(loc_to_add, site_id, tenant_id, snmp_community_location[0])
         locations.append(location_result)
     else:
         print(f"location {loc_to_add} già presente")
@@ -436,3 +439,9 @@ for device in to_add_all:
             raise he
     
 print("Fatto")
+
+#to_add_all              # LA LISTA DEVICE TYPE -> ID
+#id_man_to_assoc@iate    # LA LISTA MANUFATURERS -> ID 
+filtered_loc = [{"id": item["id"], "name": item["name"]} for item in nbox.get_locations()] # Loc -> ID
+print(json.dumps( filtered_loc, indent=4))
+
