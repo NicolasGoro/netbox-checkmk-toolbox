@@ -65,9 +65,19 @@ class YNetbox(object):
 
     def get_devices_type(self):
         return self.get("/dcim/device-types")
+    
+    def get_devices_roles(self):
+        return self.get("/dcim/device-roles")['results']
+    
+    def get_devices_net_layer(self):
+        return self.get("/extras/custom-field-choice-sets/5/choices")['results']
 
     def get_interfaces(self):
         return self.get("/dcim/interfaces")
+    
+    def get_platforms(self):
+        return self.get("/dcim/platforms")['results']
+    
 
     def get_IPs_address(self):
         return self.get("/ipam/ip-addresses")
@@ -108,7 +118,7 @@ class YNetbox(object):
     def create_device(self, name, device_id, role_id, tenant_id, platform_id, serial_number, site_id, location_id, snmp_com_device, net_layer_id, data_fine, data_inizio, rma, sla):
         device_data = {
             "name": name,
-            "device_type": device_id,
+            "device_type": device_id, 
             "role": role_id,
             "tenant": tenant_id,
             "platform": platform_id,
