@@ -440,8 +440,131 @@ for device in to_add_all:
     
 print("Fatto")
 
-#to_add_all              # LA LISTA DEVICE TYPE -> ID
-#id_man_to_assoc@iate    # LA LISTA MANUFATURERS -> ID 
-filtered_loc = [{"id": item["id"], "name": item["name"]} for item in nbox.get_locations()] # Loc -> ID
-print(json.dumps( filtered_loc, indent=4))
 
+#########################################################################################################
+# GESTIONE DEI DEVICE #
+
+#to_add_all              # LA LISTA DEVICE TYPE -> ID
+#id_man_to_assoc@iate    # LA LISTA MANUFATURERS -> ID
+ 
+# Loc -> ID
+filtered_loc = [{"id": item["id"], "name": item["name"]} for item in nbox.get_locations()] 
+#print(json.dumps( filtered_loc, indent=4))
+
+ # Role -> ID
+filtered_roles = [{"id": item["id"], "name": item["name"]} for item in nbox.get_devices_roles()]
+#print(json.dumps( filtered_roles, indent=4))
+
+ # net_layer -> ID
+filtered_net_layer = [{"id": item["id"], "display": item["display"]} for item in nbox.get_devices_net_layer()] # Role -> ID
+#print(json.dumps( filtered_net_layer, indent=4))
+
+ # Plat -> ID
+filtered_platforms = [{"id": item["id"], "name": item["name"]} for item in nbox.get_platforms()]
+#print(json.dumps( filtered_platforms, indent=4))
+
+# Funzione per ottenere l'ID del ruolo
+def get_role_id(role_name):
+    for role in filtered_roles:
+        if role["name"] == role_name:
+            return role["id"]
+    return None  
+
+# Funzione per ottenere l'ID del layer di rete
+def get_network_layer_id(layer_name):
+    for layer in filtered_net_layer:
+        if layer["display"] == layer_name:
+            return layer["id"]
+    return None  
+
+# Funzione per ottenere l'ID della piattaforma
+def get_platform_id(platform_name):
+    for platform in filtered_platforms:
+        if "display" in platform and platform["display"] == platform_name:
+            return platform["id"]
+    return None  
+
+# Funzione per ottenere l'ID del produttore
+def get_manufacturer_id(manufacturer_name):
+    for manufacturer in id_man_to_associate:
+        if manufacturer["name"] == manufacturer_name:
+            return manufacturer["id"]
+    return None 
+
+def get_device_type_id(device_type):
+    for device_mapping in to_add_all:
+        if device_mapping["Device Type"] == device_type:
+            return device_mapping["id"]
+    return None  
+
+# Aggiorna la lista dei dispositivi con gli ID dei ruoli e dei layer di rete
+for device in all_devices:
+    role_name = device["Device Role"]
+    network_layer_name = device["Network Layer"]
+    platform_name = device["Platform"]
+    manufacturer_name = device["Manufacturers"]
+    device_type = device["Device Type"]
+
+    country = device.get("Country", "")
+    city = device.get("City", "")
+    device["Location"] = f"{country}_{city}"
+
+    platform_id = get_platform_id(platform_name)
+    manufacturer_id = get_manufacturer_id(manufacturer_name)
+    role_id = get_role_id(role_name)
+    network_layer_id = get_network_layer_id(network_layer_name)
+    device_type_id = get_device_type_id(device_type)
+
+    for location_mapping in filtered_loc:
+        if location_mapping["name"] == device["Location"]:
+            location_id = location_mapping["id"]
+            break
+    else:
+        location_id = None
+
+    # Aggiorna il campo "Location" con l'ID della location
+    device["Location"] = location_id
+    device["Site"] = site_id
+    device["Tenant"] = tenant_id
+    # Aggiorna il valore nei dispositivi
+    device["Device Type"] = device_type_id
+    # Aggiorna i valori nei dispositivi
+    device["Device Role"] = role_id
+    device["Network Layer"] = network_layer_id
+    # Aggiorna i valori nei dispositivi
+    device["Platform"] = platform_id
+    device["Manufacturers"] = manufacturer_id
+
+    # Ora la lista dei dispositivi contiene gli ID al posto dei nomi dei ruoli e dei layer di rete
+#print(json.dumps(all_devices, indent=4))
+
+# CREAZIONE DEI DEVICE #
+    
+# Esempio di utilizzo della funzione create_device con controllo sui campi
+for device in all_devices:
+    print(json.dumps(device, indent=4))
+    # Estrai i parametri dal dispositivo
+    name = device.get("Device Name")
+    device_type = device.get("Device Type")
+    role = device.get("Device Role")
+    tenant = device.get("Tenant")
+    platform = device.get("Platform")
+    serial = device.get("Serial Number")
+    site = device.get("Site")
+    location = device.get("Location")
+    snmp_com_device = device.get("snmp_community_device")
+    net_layer = device.get("Network Layer")
+    data_fine = device.get("Data fine contratto")
+    data_inizio = device.get("Data inizio contratto")
+    rma = device.get("RMA")
+    sla = device.get("SLA")
+
+    # Esegui la creazione del dispositivo
+    result = nbox.create_device(
+        name, device_type, role, tenant, platform, serial, site, location,
+        snmp_com_device, net_layer, data_fine, data_inizio, rma, sla
+    )
+
+    # Verifica la risposta e gestisci i dispositivi non creati
+    if result.status_code != 200:
+        print(f"Errore nella creazione del dispositivo {name}: {result.text}")
