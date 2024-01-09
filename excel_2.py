@@ -28,12 +28,21 @@ def extract_all_objects_row(file_path):
 
     # Inizializza una lista vuota per immagazzinare gli oggetti JSON
     json_list = []
-
+    device_name_count = {}
     # Itera attraverso ogni riga nel dataframe
     for index, row in df.iterrows():
         # Crea un dizionario per ogni riga
+        device_name = row["Device Name"]
+        if device_name in device_name_count:
+            device_name_count[device_name] += 1
+            device_name = f"{device_name}/{row['Serial Number']}"
+        else:
+            device_name_count[device_name] = 1
+    # Itera attraverso ogni riga nel dataframe
+    #for index, row in df.iterrows():
+        # Crea un dizionario per ogni riga
         json_data = {
-            "Device Name": row["Device Name"],
+            "Device Name": device_name,
             "Device Role": row["Device Role"],
             "Device Type": row["Device Type"],
             "Serial Number": row["Serial Number"],
@@ -50,8 +59,8 @@ def extract_all_objects_row(file_path):
             "SNMP": "NON_PRESENTE" if pd.isna(row["SNMP"]) else row["SNMP"],
             "snmp_community_device": "NON_PRESENTE" if pd.isna(row["snmp_community_device"]) else row["snmp_community_device"],
             "snmp_community_city": "NON_PRESENTE" if pd.isna(row["snmp_community_city"]) else row["snmp_community_city"],
-            "Data inizio contratto": datetime.strftime(row["Data inizio contratto"], "%Y-%m-%d %H:%M:%S") if not pd.isna(row["Data inizio contratto"]) else "NON PRESENTE",
-            "Data fine contratto": datetime.strftime(row["Data fine contratto"], "%Y-%m-%d %H:%M:%S") if not pd.isna(row["Data fine contratto"]) else "NON PRESENTE",
+            "Data inizio contratto": datetime.strftime(row["Data inizio contratto"], "%Y-%m-%d") if not pd.isna(row["Data inizio contratto"]) else "NON PRESENTE",
+            "Data fine contratto": datetime.strftime(row["Data fine contratto"], "%Y-%m-%d") if not pd.isna(row["Data fine contratto"]) else "NON PRESENTE",
             "Maintenance": row["Maintenance"],
             "Monitoraggio": row["Monitoraggio"],
             "Connection Type": row["Connection Type"],
@@ -235,8 +244,6 @@ def extract_unique_pairs(json_list):
 def filter_json(data):
     return {key: value for key, value in data.items() if key in ["Device Type", "Manufacturers"] and not (isinstance(value, float) and math.isnan(value))}
 
-
-
 #---------------------------------------------------------------------------------------------------
 #MAIN
 _, file_extension = os.path.splitext(path)
@@ -328,6 +335,7 @@ for site_to_add in site_add:
         print(f"site {site_to_add} mancante, lo creo")
         site_result = nbox.create_site(site_to_add, tenant_id)
         sites.append(site_result)
+        print(site_id)
     else:
         print(f"site {site_to_add} già presente")
 pass
@@ -480,7 +488,7 @@ def get_network_layer_id(layer_name):
 # Funzione per ottenere l'ID della piattaforma
 def get_platform_id(platform_name):
     for platform in filtered_platforms:
-        if "display" in platform and platform["display"] == platform_name:
+        if platform["name"] == platform_name:
             return platform["id"]
     return None  
 
@@ -502,6 +510,7 @@ for device in all_devices:
     role_name = device["Device Role"]
     network_layer_name = device["Network Layer"]
     platform_name = device["Platform"]
+    print(platform_name)
     manufacturer_name = device["Manufacturers"]
     device_type = device["Device Type"]
 
@@ -533,6 +542,7 @@ for device in all_devices:
     device["Network Layer"] = network_layer_id
     # Aggiorna i valori nei dispositivi
     device["Platform"] = platform_id
+    #print(device["Platform"])
     device["Manufacturers"] = manufacturer_id
 
     # Ora la lista dei dispositivi contiene gli ID al posto dei nomi dei ruoli e dei layer di rete
@@ -556,7 +566,8 @@ for device in all_devices:
     net_layer = device.get("Network Layer")
     data_fine = device.get("Data fine contratto")
     data_inizio = device.get("Data inizio contratto")
-    rma = device.get("RMA")
+    rma = ["Vendor"]
+    #rma = device.get("RMA")
     sla = device.get("SLA")
 
     # Esegui la creazione del dispositivo
@@ -566,5 +577,5 @@ for device in all_devices:
     )
 
     # Verifica la risposta e gestisci i dispositivi non creati
-    if result.status_code != 200:
-        print(f"Errore nella creazione del dispositivo {name}: {result.text}")
+    if "status" in result and result["status"] not in (200, 201):
+        print(f"Errore nella creazione del dispositivo {name}: {result.get('message', 'Errore sconosciuto')}")

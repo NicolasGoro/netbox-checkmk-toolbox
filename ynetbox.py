@@ -22,7 +22,7 @@ class YNetbox(object):
                                        timeout=timeout,
                                        verify=False, **kwargs)
             
-            #print(raw_res.text)
+            print(raw_res.text)
             raw_res.raise_for_status()
 
             if raw_res.status_code != 204:
@@ -70,7 +70,7 @@ class YNetbox(object):
         return self.get("/dcim/device-roles")['results']
     
     def get_devices_net_layer(self):
-        return self.get("/extras/custom-field-choice-sets/5/choices")['results']
+        return self.get("/extras/custom-field-choice-sets/2/choices")['results']
 
     def get_interfaces(self):
         return self.get("/dcim/interfaces")
@@ -78,7 +78,6 @@ class YNetbox(object):
     def get_platforms(self):
         return self.get("/dcim/platforms")['results']
     
-
     def get_IPs_address(self):
         return self.get("/ipam/ip-addresses")
 
@@ -126,14 +125,15 @@ class YNetbox(object):
             "site": site_id,
             "location": location_id,
             "status": "active",
-            "snmp": True,
-            "snmp_community_device": snmp_com_device,
-            "net_layer": net_layer_id,
-            "fine_contratto": data_fine,
-            "inizio_contratto": data_inizio,
-            "rma": rma,
-            "sla": sla
-        }
+            "custom_fields": {
+                "snmp": True,
+                "snmp_community_device": snmp_com_device,
+                "net_layer": [net_layer_id],
+                "end_contract": data_fine,
+                "start_contract": data_inizio,
+                "rma": rma,
+                "sla": [sla]
+        }}
         return self.post("/dcim/devices/", json=device_data)
 
     def create_manufacturer(self, name, dominio_description):
@@ -142,7 +142,7 @@ class YNetbox(object):
             "slug": name.lower(),
             "description": dominio_description
         }
-        return self.post("/dcim/manufactures/", json=manufactures_data)
+        return self.post("/dcim/manufacturers/", json=manufactures_data)
 
     def create_device_type(self, manufacturers_id, name_new_device):
         device_type_data = {
