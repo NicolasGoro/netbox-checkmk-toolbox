@@ -702,3 +702,58 @@ for ip_info in address_interface_list:
     except requests.HTTPError as he:
         if he.response.status_code == 400:
             print(f"IP Address '{address}' collegato a ID delll'interfaccia {interface_id} già esiste. Ignorato.")
+
+
+ips_address = nbox.get_IPs_address()
+all_ip_filtered = [{"id": item["id"], "name": item["assigned_object"]["device"]["name"]} for item in ips_address["results"]] 
+print(json.dumps(all_ip_filtered, indent=4))
+
+device_now_on_netbox = nbox.get_devices()
+devices_filtered = [{"id": item["id"], "name": item["name"]} for item in device_now_on_netbox["results"]] 
+print(json.dumps(devices_filtered, indent=4))
+
+
+# Dizionario per associare il nome del dispositivo agli dettagli del dispositivo
+device_details_dict = {device['Device Name']: device for device in all_devices}
+
+# Lista per i dispositivi non trovati
+not_found_devices = []
+
+# Lista con ID degli IP e Nome del Device
+result_list = []
+
+# Trova corrispondenze e crea la lista risultante
+for device in all_ip_filtered:
+    device_name = device['name']
+    if device_name in device_details_dict:
+        # Corrispondenza trovata, aggiungi l'id e l'IP di gestione alla lista risultante
+        result_list.append({
+            "id_ip": device['id'],
+            "Device Name": device_details_dict[device_name]["Device Name"]
+        })
+    else:
+        # Nessuna corrispondenza trovata, aggiungi alla lista dei dispositivi non trovati
+        not_found_devices.append(device_name)
+
+# Stampa il risultato
+print("Dispositivi trovati:", result_list)
+#print("Dispositivi non trovati:", not_found_devices)
+
+# Creazione di un dizionario di corrispondenza tra name e id_ip
+name_to_id_ip = {item['Device Name']: item['id_ip'] for item in result_list}
+
+# Creazione della lista contenente "id_device" e "id_ip"
+ip_to_patch = [{"id_device": item1["id"], "id_ip": name_to_id_ip.get(item1["name"], None)} for item1 in devices_filtered]
+
+# Stampa della lista risultante
+print(ip_to_patch)
+
+for elem in ip_to_patch:
+    id_address = elem['id_ip']
+    id_device = elem['id_device']
+    try:
+        nbox.update_device_with_IP(id_device, id_address)
+        print(f"ID_ip Address '{id_address}' collegato a ID_device {id_device} con successo.")
+    except requests.HTTPError as he:
+        if he.response.status_code == 400:
+            print(f"ID_ip Address '{id_address}' collegato a ID_device {id_device} già esiste. Ignorato.")

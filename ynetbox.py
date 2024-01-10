@@ -219,27 +219,42 @@ class YNetbox(object):
         ]
         return self.patch("/dcim/locations/", json=location_data)
 
-    def update_device(self, device_id, name, device_type_id, role_id, tenant_id, platform_id, serial_number, site_id, location_id, snmp_com_device, net_layer_id, data_fine, data_inizio, rma, sla):
+
+    def update_device_with_IP(self, id_device, id_address):
+        device_data=[
+            {
+                "id": id_device,
+                "oob_ip": {
+                    "id": id_address
+                    }
+            }
+        ]
+        return self.patch("/dcim/devices/", json=device_data)
+    
+    def update_device(self, device_id, name, device_type_id, role_id, tenant_id, platform_id, serial_number, site_id, location_id, conn_id, snmp_com_device, net_layer_id, data_fine, data_inizio, rma, sla):
         device_data = [
             {
-                "id": device_id,
-                "name": name,
-                "device_type": device_type_id,
-                "role": role_id,
-                "tenant": tenant_id,
-                "platform": platform_id,
-                "serial": serial_number,  # string
-                "site": site_id,
-                "location": location_id,
-                "status": "active",
+            "id": device_id,
+            "name": name,
+            "device_type": device_type_id, 
+            "role": role_id,
+            "tenant": tenant_id,
+            "platform": platform_id,
+            "serial": serial_number,  # string
+            "site": site_id,
+            "location": location_id,
+            "status": "active",
+            "custom_fields": {
+                "conn_type": [conn_id],
                 "snmp": True,
                 "snmp_community_device": snmp_com_device,
-                "net_layer": net_layer_id,
-                "fine_contratto": data_fine,
-                "inizio_contratto": data_inizio,
-                "rma": rma,
-                "sla": sla
-            }
+                "net_layer": [net_layer_id],
+                "end_contract": data_fine,
+                "start_contract": data_inizio,
+                "rma": [rma],
+                "sla": [sla]
+                            }
+        }
         ]
         return self.patch("/dcim/devices/", json=device_data)
 
