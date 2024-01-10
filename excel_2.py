@@ -628,6 +628,7 @@ for device in all_devices:
         
         else:
             lista_device_non_aggiunti.append(device)
+            #all_devices.remove(device)
 
     except requests.HTTPError as he:
         if he.response.status_code == 400:
@@ -636,3 +637,68 @@ for device in all_devices:
 print("\nI devices che non si sono potuti aggiungere sono:")
 for elemento in lista_device_non_aggiunti:
     print("> ",elemento.get("Device Name"))
+
+## INTERFACCE ##
+    
+devices_added = nbox.get_devices()
+device_name_id = [{"id": item["id"], "name": item["name"]} for item in devices_added['results']]
+#print(json.dumps(device_name_id, indent=4))
+
+for device in device_name_id:
+    name = device.get("name")
+    id_device = device.get("id")
+    try:
+        nbox.create_interface(id_device, name)
+        print(f"Interface '{name}' creato con successa.")
+    except requests.HTTPError as he:
+        if he.response.status_code == 400:
+            print(f"Interfaccia '{name}' già esiste. Ignorata.")
+
+
+## IP ADDRESS ##
+interfaces_ids = nbox.get_interfaces()['results']
+interface_device_info = [{"id": item["id"], "name": item["device"]["name"]} for item in interfaces_ids]
+print(json.dumps(interface_device_info, indent=4))
+
+# Dispositivi rimanenti
+filtered_devices = []
+
+for device in all_devices:
+    device_name = device["Device Name"]
+    
+    # Verifica se il nome del dispositivo è nella lista dei non aggiunti
+    if device_name not in [device['Device Name'] for device in lista_device_non_aggiunti] and str(device_name) != 'nan':
+        filtered_devices.append(device)
+
+# lista da passare alla Function crea_IP
+address_interface_list = []
+
+# Itera attraverso i nomi dei dispositivi
+for device_name_info in interface_device_info:
+    # Cerca il dispositivo corrispondente nella lista dei dispositivi
+    matching_device = next(
+        (device for device in filtered_devices if device["Device Name"] == device_name_info["name"]),
+        None
+    )
+    # Se c'è una corrispondenza, crea un nuovo elemento JSON
+    if matching_device:
+        result_item = {
+            "id": device_name_info["id"],
+            "Management IP Address": matching_device["Management IP Address"],
+            # Aggiungi altri campi desiderati...
+        }
+        address_interface_list.append(result_item)
+
+# Stampa la lista finale
+print(address_interface_list)
+
+for ip_info in address_interface_list:
+    address = ip_info['Management IP Address']
+    tenant_id = tenant_id 
+    interface_id = ip_info['id']
+    try:
+        nbox.create_ip_address(address, tenant_id, interface_id)
+        print(f"IP Address '{address}' collegato a ID delll'interfaccia {interface_id} creato con successo.")
+    except requests.HTTPError as he:
+        if he.response.status_code == 400:
+            print(f"IP Address '{address}' collegato a ID delll'interfaccia {interface_id} già esiste. Ignorato.")

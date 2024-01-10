@@ -157,6 +157,7 @@ class YNetbox(object):
         return self.post("/dcim/device-types/", json=device_type_data)
 
     def create_interface(self, device_id, name):
+        name = f"{name} - MGMT"
         interface_data = {
             "device": device_id,
             "name": name,
@@ -166,6 +167,7 @@ class YNetbox(object):
         return self.post("/dcim/interfaces/", json=interface_data)
 
     def create_ip_address(self, address, tenant_id, interface_id):
+        address = f"{address}/32"
         data_ip_addr = {
             "address": address,
             "tenant": tenant_id,
