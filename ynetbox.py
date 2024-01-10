@@ -22,7 +22,7 @@ class YNetbox(object):
                                        timeout=timeout,
                                        verify=False, **kwargs)
             
-            print(raw_res.text)
+            #print(raw_res.text)
             raw_res.raise_for_status()
 
             if raw_res.status_code != 204:
@@ -71,6 +71,9 @@ class YNetbox(object):
     
     def get_devices_net_layer(self):
         return self.get("/extras/custom-field-choice-sets/2/choices")['results']
+    
+    def get_devices_connection_type(self):
+        return self.get("/extras/custom-field-choice-sets/1/choices")['results']
 
     def get_interfaces(self):
         return self.get("/dcim/interfaces")
@@ -114,7 +117,7 @@ class YNetbox(object):
         }
         return self.post("/dcim/locations/", json=location_data)
 
-    def create_device(self, name, device_id, role_id, tenant_id, platform_id, serial_number, site_id, location_id, snmp_com_device, net_layer_id, data_fine, data_inizio, rma, sla):
+    def create_device(self, name, device_id, role_id, tenant_id, platform_id, serial_number, site_id, location_id, conn_id, snmp_com_device, net_layer_id, data_fine, data_inizio, rma, sla):
         device_data = {
             "name": name,
             "device_type": device_id, 
@@ -126,12 +129,13 @@ class YNetbox(object):
             "location": location_id,
             "status": "active",
             "custom_fields": {
+                "conn_type": [conn_id],
                 "snmp": True,
                 "snmp_community_device": snmp_com_device,
                 "net_layer": [net_layer_id],
                 "end_contract": data_fine,
                 "start_contract": data_inizio,
-                "rma": rma,
+                "rma": [rma],
                 "sla": [sla]
         }}
         return self.post("/dcim/devices/", json=device_data)

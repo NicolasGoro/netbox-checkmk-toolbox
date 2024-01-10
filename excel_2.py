@@ -453,7 +453,7 @@ for device in to_add_all:
         else:
             raise he
     
-print("Fatto")
+print("Check su Device Type Fatto!\n")
 
 #########################################################################################################
 # GESTIONE DEI DEVICE #
@@ -481,6 +481,9 @@ filtered_platforms = [{"id": item["id"], "name": item["name"]} for item in nbox.
 all_dev_type = [{"id": item["id"], "name": item["display"]} for item in nbox.get_devices_type()["results"]] 
 #print(json.dumps( all_dev_type, indent=4))
 
+all_conn_type = [{"id": item["id"], "name": item["display"]} for item in nbox.get_devices_connection_type()] 
+print(json.dumps( all_conn_type, indent=4))
+
 # Funzione per ottenere l'ID del ruolo
 def get_role_id(role_name):
     for role in filtered_roles:
@@ -498,6 +501,13 @@ def get_network_layer_id(layer_name):
 # Funzione per ottenere l'ID del layer di rete
 def get_dev_type_id(layer_name):
     for layer in all_dev_type:
+        if layer["name"] == layer_name:
+            return layer["id"]
+    return None  
+
+# Funzione per ottenere l'ID del connectiontype
+def get_connection_type_id(layer_name):
+    for layer in all_conn_type:
         if layer["name"] == layer_name:
             return layer["id"]
     return None  
@@ -533,7 +543,9 @@ for device in all_devices:
     country = device.get("Country", "")
     city = device.get("City", "")
     device["Location"] = f"{country}_{city}"
+    conn_type = device.get("Connection Type")
 
+    connection_type_id = get_connection_type_id(conn_type)
     device_type_id = get_dev_type_id(device_type)
     platform_id = get_platform_id(platform_name)
     manufacturer_id = get_manufacturer_id(manufacturer_name)
@@ -561,7 +573,7 @@ for device in all_devices:
     device["Platform"] = platform_id
     #print(device["Platform"])
     device["Manufacturers"] = manufacturer_id
-
+    device["Connection Type"] = connection_type_id
     # Ora la lista dei dispositivi contiene gli ID al posto dei nomi dei ruoli e dei layer di rete
 #print(json.dumps(all_devices, indent=4))
 
@@ -581,14 +593,15 @@ for device in all_devices:
     serial = device.get("Serial Number")
     site = device.get("Site")
     location = device.get("Location")
+    conn_id = device.get("Connection Type")
     snmp_com_device = device.get("snmp_community_device")
     net_layer = device.get("Network Layer")
     data_fine = device.get("Data fine contratto")
     data_inizio = device.get("Data inizio contratto")
-    rma = ["Vendor"]
+    rma = "Vendor"
     sla = device.get("SLA")
 
-
+    '''
     # Esegui la creazione del dispositivo solo se il nome non è NaN e snmp_community_device non è "NON PRESENTE"
     if pd.notna(name) and pd.notna(snmp_com_device) and snmp_com_device != "NON_PRESENTE":
         result = nbox.create_device(
@@ -601,6 +614,25 @@ for device in all_devices:
     else:
         lista_device_non_aggiunti.append(device)
 
-print("I devices che non si sono potuti aggiungere sono: \n",json.dumps(lista_device_non_aggiunti, indent=4))
-    
+#print("I devices che non si sono potuti aggiungere sono: \n",json.dumps(lista_device_non_aggiunti, indent=4))
 
+    '''
+    
+    try:
+        if pd.notna(name) and pd.notna(snmp_com_device) and snmp_com_device != "NON_PRESENTE":
+            nbox.create_device(
+                name, device_type, role, tenant, platform, serial, site, location, conn_id,
+                snmp_com_device, net_layer, data_fine, data_inizio, rma, sla
+            )
+            print(f"Device '{name}' creato con successo.")
+        
+        else:
+            lista_device_non_aggiunti.append(device)
+
+    except requests.HTTPError as he:
+        if he.response.status_code == 400:
+            print(f"Il device '{name}' già esiste. Ignorato.")
+       
+print("\nI devices che non si sono potuti aggiungere sono:")
+for elemento in lista_device_non_aggiunti:
+    print("> ",elemento.get("Device Name"))
