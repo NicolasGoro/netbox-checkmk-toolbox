@@ -324,6 +324,7 @@ for tenants_to_add in tenant_add:
         print(f"site {tenants_to_add} mancante, lo creo")
         site_result = nbox.create_tenant(tenants_to_add)
         tenants.append(site_result)
+        tenant_id = get_id_by_name(tenants, tenants_to_add)
     else:
         print(f"Tenant {tenants_to_add} già presente")
 pass
@@ -336,6 +337,7 @@ for site_to_add in site_add:
         print(f"site {site_to_add} mancante, lo creo")
         site_result = nbox.create_site(site_to_add, tenant_id)
         sites.append(site_result)
+        site_id = get_id_by_name(sites, site_to_add)
         print(site_id)
     else:
         print(f"site {site_to_add} già presente")
@@ -482,7 +484,7 @@ all_dev_type = [{"id": item["id"], "name": item["display"]} for item in nbox.get
 #print(json.dumps( all_dev_type, indent=4))
 
 all_conn_type = [{"id": item["id"], "name": item["display"]} for item in nbox.get_devices_connection_type()] 
-print(json.dumps( all_conn_type, indent=4))
+#print(json.dumps( all_conn_type, indent=4))
 
 # Funzione per ottenere l'ID del ruolo
 def get_role_id(role_name):
@@ -713,7 +715,7 @@ devices_filtered = [{"id": item["id"], "name": item["name"]} for item in device_
 print(json.dumps(devices_filtered, indent=4))
 
 
-# Dizionario per associare il nome del dispositivo agli dettagli del dispositivo
+# Dizionario per associare il nome del dispositivo ai dettagli del dispositivo
 device_details_dict = {device['Device Name']: device for device in all_devices}
 
 # Lista per i dispositivi non trovati
@@ -757,3 +759,94 @@ for elem in ip_to_patch:
     except requests.HTTPError as he:
         if he.response.status_code == 400:
             print(f"ID_ip Address '{id_address}' collegato a ID_device {id_device} già esiste. Ignorato.")
+
+
+# VIRTUAL CHASSIS #############################################################################
+# lista dei device multipli da aggiungere ai vari VC
+
+import copy
+from collections import Counter
+
+#lista all device - ID senza / 
+modified_list = copy.deepcopy(devices_filtered)
+# Estrai solo la prima parte del nome, se presente un '/'
+modified_list = [{'id': item['id'], 'name': item['name'].split('/')[0]} for item in devices_filtered]
+# Estrai tutti i valori dell'attributo 'name'
+names = [item['name'] for item in modified_list]
+# Conta quante volte ciascun nome appare nella lista
+name_counts = Counter(names)
+# Filtra gli elementi che hanno un nome che appare più di una volta
+result_list = [item for item in modified_list if name_counts[item['name']] > 1]
+# Aggiungi nuovamente la parte dopo '/' al nome nel risultato
+result_list = [{'id': item['id'], 'name': item['name'] + '/' + item['name'].split('/')[1] if '/' in item['name'] else item['name']} for item in result_list]
+
+# Stampa la lista risultante
+print(json.dumps(result_list, indent=4))
+
+def match_for_VC(list1, list2):
+    match_for_VC = []
+
+    id_set = set(item2["id"] for item2 in list2)
+
+    for item1 in list1:
+        if item1["id"] in id_set:
+            match_for_VC.append({"id": item1["id"], "name": item1["name"]})
+
+    return match_for_VC
+device_match_for_VC = match_for_VC(devices_filtered, result_list)
+print(json.dumps(device_match_for_VC, indent=4))
+
+for device in device_match_for_VC:
+        try:
+            if '/' not in device["name"]:
+                nbox.create_virtual_chassis(device["name"], device["id"])
+                print("riuscito")
+        except requests.HTTPError as he:
+            if he.response.status_code == 400:
+                print(f"no")
+            else:
+                pass
+
+extract_vc = [{"id": item["id"], "name": item["name"]} for item in nbox.get_virtual_chassis()]
+print(json.dumps(extract_vc, indent=4))
+
+
+# Rimuovi gli elementi con "/" nel nome
+elebora_dev_vc = [item for item in device_match_for_VC if '/' in item['name']]
+
+# Conta gli elementi con la stessa parte prima dello "/"
+count_dict = {}
+for item in elebora_dev_vc:
+    prefix = item['name'].split('/')[0]
+    count_dict[prefix] = count_dict.get(prefix, 1) + 1
+    item['position'] = count_dict[prefix]
+
+# Stampa il risultato
+print(elebora_dev_vc)
+
+dev_to_update_vc = []
+
+for first_item in elebora_dev_vc:
+    for second_item in extract_vc:
+        if first_item['name'].startswith(second_item['name']):
+            dev_to_update_vc.append({
+                "id_device": first_item['id'],
+                "id_vc": second_item['id'],
+                "position_in_vc": first_item['position']
+            })
+
+print(json.dumps(dev_to_update_vc, indent=4))
+
+for item in dev_to_update_vc:
+    try:
+        id_device = item["id_device"]
+        print(id_device)
+        id_vc = item["id_vc"]
+        position_vc = item["position_in_vc"]
+        nbox.update_virtual_chassis(id_device, id_vc, position_vc)
+        print("VC settato")
+    except requests.HTTPError as he:
+        if he.response.status_code == 400:
+            print(f"gia impostato")
+        else:
+            print("error")

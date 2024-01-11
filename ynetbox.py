@@ -83,6 +83,10 @@ class YNetbox(object):
     
     def get_IPs_address(self):
         return self.get("/ipam/ip-addresses")
+    
+    def get_virtual_chassis(self):
+        return self.get("/dcim/virtual-chassis")['results']
+    
 
 # POST FUNCTIONS - Creazione Oggetti
 
@@ -165,6 +169,17 @@ class YNetbox(object):
             "mgmt_only": True
         }
         return self.post("/dcim/interfaces/", json=interface_data)
+    
+    def create_virtual_chassis(self, name, id_master):
+        vc_data = {
+            "name": name,
+            "domain": " ",
+            "master": id_master,
+            "description": " ",
+            "comments": " "
+        }
+        return self.post("/dcim/virtual-chassis/", json=vc_data)
+
 
     def create_ip_address(self, address, tenant_id, interface_id):
         address = f"{address}/32"
@@ -230,6 +245,18 @@ class YNetbox(object):
             }
         ]
         return self.patch("/dcim/devices/", json=device_data)
+    
+    def update_virtual_chassis(self, id_device_to_add, id_VC, position):
+        device_data=[
+            {
+            "id" : id_device_to_add,
+            "virtual_chassis": id_VC,
+            "vc_position": position
+            }
+        ]
+        return self.patch("/dcim/devices/", json=device_data)
+        
+
     
     def update_device(self, device_id, name, device_type_id, role_id, tenant_id, platform_id, serial_number, site_id, location_id, conn_id, snmp_com_device, net_layer_id, data_fine, data_inizio, rma, sla):
         device_data = [
