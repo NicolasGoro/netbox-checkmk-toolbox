@@ -328,7 +328,7 @@ for tenants_to_add in tenant_add:
     else:
         print(f"Tenant {tenants_to_add} già presente")
 pass
-print(tenant_id)
+print("Il Tenant ha id = ",tenant_id)
 # SITES
 sites = nbox.get_sites()
 for site_to_add in site_add:
@@ -338,11 +338,10 @@ for site_to_add in site_add:
         site_result = nbox.create_site(site_to_add, tenant_id)
         sites.append(site_result)
         site_id = get_id_by_name(sites, site_to_add)
-        print(site_id)
     else:
         print(f"site {site_to_add} già presente")
 pass
-print(site_id)
+print("Il Site ha id = ",site_id,"\n")
 
 # LOCATIONS
 locations = nbox.get_locations()
@@ -373,22 +372,22 @@ list_all_manufacturers_nbox=[]
 for all_manufacturers in all_manufacturers_nbox["results"]:
     #print(all_manufacturers["name"])
     list_all_manufacturers_nbox.append(all_manufacturers["name"])
-print(list_all_manufacturers_nbox)
+#print(list_all_manufacturers_nbox)
 
 list_id=[]
 manufacturers_list=nbox.get_manufacturers()['results']
 for elemento in device_manufacturers_add:
     if elemento in list_all_manufacturers_nbox:
-        print(f"{elemento} è già presente")
+        print(f"\n > La location {elemento} è già presente")
     else:
-        print(f"{elemento} non presente, lo creo")
+        print(f"\n La location {elemento} non presente, la creo")
         manufacturers_result=nbox.create_manufacturer(elemento, elemento)
         manufacturers_list.append(manufacturers_result)
 #print(manufacturers_list)
 
 # Lista con manufacturers e ID associato
 id_man_to_associate = [{'name': manufacturer['display'], 'id': manufacturer['id']} for manufacturer in manufacturers_list]
-print(json.dumps(id_man_to_associate, indent=4))
+print("Gestione dei Manufacturers completata:\n",json.dumps(id_man_to_associate, indent=4))
 
 
 # CHEK DEVICE TYPE
@@ -400,12 +399,12 @@ for item in device_type_nbox:
     device_type = {"device_type": item["display"]}
     manufacturer = {"manufacturer": item["manufacturer"]["display"]}
     all_device_type_on_nbox.append({**device_type, **manufacturer})
-print("I DEVICE_TYPE su NetBox sono: \n",all_device_type_on_nbox)
+#print("I DEVICE_TYPE su NetBox sono: \n",all_device_type_on_nbox)
 # FILE
 all_device_type_on_file=[]
 for device in filtered_device_type_add:
         all_device_type_on_file.append(device)
-print("I DEVICE_TYPE su FILE sono: \n",all_device_type_on_file)
+#print("I DEVICE_TYPE su FILE sono: \n",all_device_type_on_file)
 
 original_size_list1 = len(all_device_type_on_file)
 original_size_list2 = len(all_device_type_on_nbox)
@@ -421,7 +420,7 @@ size_to_add = len(to_add)
   
 
 to_add_all = [device for device in to_add if all(key in device for key in ['Device Type', 'Manufacturers'])]
-print("I Device Type da porvare ad agguingere sono: \n",to_add_all)
+print("I Device Type da porvare ad agguingere sono: \n",json.dumps(to_add_all,indent=2))
 
 manufacturers_ids = nbox.get_manufacturers()["results"]
 filtered_manufacturers_ids = [{"id": item["id"], "display": item["display"]} for item in manufacturers_ids] # Role -> ID
@@ -602,23 +601,6 @@ for device in all_devices:
     data_inizio = device.get("Data inizio contratto")
     rma = "Vendor"
     sla = device.get("SLA")
-
-    '''
-    # Esegui la creazione del dispositivo solo se il nome non è NaN e snmp_community_device non è "NON PRESENTE"
-    if pd.notna(name) and pd.notna(snmp_com_device) and snmp_com_device != "NON_PRESENTE":
-        result = nbox.create_device(
-            name, device_type, role, tenant, platform, serial, site, location,
-            snmp_com_device, net_layer, data_fine, data_inizio, rma, sla
-            )
-        if isinstance(result, dict) and 'name' in result:
-            nome_dev = result['name']
-        print(f"Device: {nome_dev} aggiunto con successo")
-    else:
-        lista_device_non_aggiunti.append(device)
-
-#print("I devices che non si sono potuti aggiungere sono: \n",json.dumps(lista_device_non_aggiunti, indent=4))
-
-    '''
     
     try:
         if pd.notna(name) and pd.notna(snmp_com_device) and snmp_com_device != "NON_PRESENTE":
@@ -641,7 +623,7 @@ for elemento in lista_device_non_aggiunti:
     print("> ",elemento.get("Device Name"))
 
 ## INTERFACCE ##
-    
+print("\nCreazione delle Interfacce")
 devices_added = nbox.get_devices()
 device_name_id = [{"id": item["id"], "name": item["name"]} for item in devices_added['results']]
 #print(json.dumps(device_name_id, indent=4))
@@ -651,7 +633,7 @@ for device in device_name_id:
     id_device = device.get("id")
     try:
         nbox.create_interface(id_device, name)
-        print(f"Interface '{name}' creato con successa.")
+        print(f"Interfaccia '{name}' creata con successa.")
     except requests.HTTPError as he:
         if he.response.status_code == 400:
             print(f"Interfaccia '{name}' già esiste. Ignorata.")
@@ -692,7 +674,7 @@ for device_name_info in interface_device_info:
         address_interface_list.append(result_item)
 
 # Stampa la lista finale
-print(address_interface_list)
+print("Correlazione tra Interfacce e IP\n",address_interface_list,"\n")
 
 for ip_info in address_interface_list:
     address = ip_info['Management IP Address']
@@ -738,7 +720,7 @@ for device in all_ip_filtered:
         not_found_devices.append(device_name)
 
 # Stampa il risultato
-print("Dispositivi trovati:", result_list)
+print("Dispositivi trovati:", json.dumps(result_list, indent=2),"\n")
 #print("Dispositivi non trovati:", not_found_devices)
 
 # Creazione di un dizionario di corrispondenza tra name e id_ip
@@ -748,7 +730,7 @@ name_to_id_ip = {item['Device Name']: item['id_ip'] for item in result_list}
 ip_to_patch = [{"id_device": item1["id"], "id_ip": name_to_id_ip.get(item1["name"], None)} for item1 in devices_filtered]
 
 # Stampa della lista risultante
-print(ip_to_patch)
+print("Gli IP associati ai device da aggiungere sono:\n",json.dumps(ip_to_patch,indent=2))
 
 for elem in ip_to_patch:
     id_address = elem['id_ip']
@@ -800,10 +782,10 @@ for device in device_match_for_VC:
         try:
             if '/' not in device["name"]:
                 nbox.create_virtual_chassis(device["name"], device["id"])
-                print("riuscito")
+                print(f"Creazione VC '{device['id']}' riuscita")
         except requests.HTTPError as he:
             if he.response.status_code == 400:
-                print(f"no")
+                print(f"creazione gia eseguita per VC con '{device['id']}' ")
             else:
                 pass
 
@@ -822,7 +804,7 @@ for item in elebora_dev_vc:
     item['position'] = count_dict[prefix]
 
 # Stampa il risultato
-print(elebora_dev_vc)
+print("I devices che occorre elaborare per ricavare le posizioni nel VC sono:\n",json.dumps(elebora_dev_vc, indent=2))
 
 dev_to_update_vc = []
 
@@ -840,13 +822,13 @@ print(json.dumps(dev_to_update_vc, indent=4))
 for item in dev_to_update_vc:
     try:
         id_device = item["id_device"]
-        print(id_device)
+        #print(id_device)
         id_vc = item["id_vc"]
         position_vc = item["position_in_vc"]
         nbox.update_virtual_chassis(id_device, id_vc, position_vc)
-        print("VC settato")
+        print(f"VC {id_device} settato con l'aggiunta dei devices richiesti")
     except requests.HTTPError as he:
         if he.response.status_code == 400:
             print(f"gia impostato")
         else:
-            print("error")
+            print("error - impossibile eseguire l'update")
