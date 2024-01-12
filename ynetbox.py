@@ -239,7 +239,7 @@ class YNetbox(object):
         device_data=[
             {
                 "id": id_device,
-                "oob_ip": {
+                "primary_ip4": {
                     "id": id_address
                     }
             }

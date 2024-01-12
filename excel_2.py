@@ -345,7 +345,7 @@ print("Il Site ha id = ",site_id,"\n")
 
 # LOCATIONS
 locations = nbox.get_locations()
-snmp_community_location = estrai_elementi_unici(all_devices, chiave_da_estrazione='snmp_community_device')
+snmp_community_location = estrai_elementi_unici(all_devices, chiave_da_estrazione='snmp_community_city')
 if "NON_PRESENTE" in snmp_community_location: snmp_community_location.remove("NON_PRESENTE")
 #print (snmp_community_location)
 for loc_to_add in locations_add:
