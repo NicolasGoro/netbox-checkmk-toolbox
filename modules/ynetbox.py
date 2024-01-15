@@ -30,8 +30,10 @@ class YNetbox(object):
                 return raw_res.json()
 
         except requests.HTTPError as he:
-            if he.response.status_code != 400:
-                self.logger.exception(f"Error on {method} {url} request with {kwargs}, details: {he}")
+            if ((he.response.status_code != 400 or "already exists" not in he.response.text)
+                    and not "dcim_device_unique_name_site_tenant" in he.response.text
+                    and not "Duplicate IP address" in he.response.text and not "Related object not found using the provided attributes" in he.response.text):
+                self.logger.exception(f"Error on {method} {url} request with {kwargs}, details: {he} {he.response.text}")
             raise
         except Exception as e:
             self.logger.exception(
@@ -181,7 +183,7 @@ class YNetbox(object):
             "role": role_id,
             "tenant": tenant_id,
             "platform": platform_id,
-            "serial": serial_number,  # string
+            "serial": serial_number if not pandas.isna(serial_number) else "",  # string
             "site": site_id,
             "location": location_id,
             "status": "active",

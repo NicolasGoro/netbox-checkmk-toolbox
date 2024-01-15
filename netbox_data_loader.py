@@ -26,7 +26,7 @@ if len(sys.argv) == 2:
 else:
     print(f"Usage: python3 tool.py <filename>")
     print("Filename missing!")
-    path = "dati.csv"
+    exit(1)
 
 nbox = YNetbox(**conf['netbox'])
 
@@ -206,7 +206,7 @@ def process_csv(input_file):
                                                                                                                     "i").replace(
                     "ò", "o"),
                 "Device Type": row.get("Model", "NON PRESENTE"),
-                "Login IP": row.get("Login IP", "NON PRESENTE"),
+                "Management IP Address": row.get("Login IP", "NON PRESENTE"),
                 "Serial Number": row.get("Serial Number", "NON PRESENTE"),
                 "Platform": row.get("Family", "NON PRESENTE"),
                 "Device Role": row.get("Type", "NON PRESENTE"),
@@ -320,9 +320,9 @@ def get_platform_id(platform_name, filtered_platforms):
 
 # Funzione per ottenere l'ID del produttore
 def get_manufacturer_id(manufacturer_name, id_man_to_associate):
-    for manufacturer in id_man_to_associate:
-        if manufacturer["name"] == manufacturer_name:
-            return manufacturer["id"]
+    for man_name, man_id in id_man_to_associate.items():
+        if man_name == manufacturer_name:
+            return man_id
     return None
 
 
@@ -390,8 +390,7 @@ def main():
         site_add = estrai_elementi_unici(all_devices, chiave_da_estrazione='Site')
         logger.info(f"I Sites trovati sull'Excel sono: {site_add}")
 
-        device_manufacturers_add = estrai_elementi_unici(all_devices, chiave_da_estrazione='Manufacturers')
-        filtered_device_type_add = estrai_elementi_unici(all_devices, chiave_da_estrazione='Device Type')
+        filtered_device_type_add = [filter_json(item) for item in all_devices]
 
         logger.info('finita estrazione CSV')
     else:
@@ -452,24 +451,7 @@ def main():
 
     # MANUFACTURERS check & diff
 
-    all_manufacturers_nbox = nbox.get_manufacturers()
-    list_all_manufacturers_nbox = []
-    for all_manufacturers in all_manufacturers_nbox["results"]:
-        list_all_manufacturers_nbox.append(all_manufacturers["slug"])
 
-    manufacturers_list = all_manufacturers_nbox['results']
-    for elemento in device_manufacturers_add:
-        if elemento.lower().replace(" ", "-") in list_all_manufacturers_nbox:
-            logger.info(f"Il manufacturer {elemento} è già presente")
-        else:
-            logger.info(f"Il manufacturer {elemento} non presente, la creo")
-            manufacturers_result = nbox.create_manufacturer(elemento, elemento)
-            manufacturers_list.append(manufacturers_result)
-
-    # Lista con manufacturers e ID associato
-    id_man_to_associate = [{'name': manufacturer['display'], 'id': manufacturer['id']} for manufacturer in
-                           manufacturers_list]
-    logger.info(f"Gestione dei Manufacturers completata: f{json.dumps(id_man_to_associate)}")
 
     # CHEK DEVICE TYPE
     # NETBOX 
@@ -496,12 +478,15 @@ def main():
 
     manufacturers_ids = nbox.get_manufacturers()["results"]
 
-    manufacturer_id_map = {manufacturer['name']: manufacturer['id'] for manufacturer in id_man_to_associate}
+    manufacturer_id_map = {manufacturer['name']: manufacturer['id'] for manufacturer in manufacturers_ids}
     # Aggiungi l'id corrispondente a ciascun dispositivo
     for device in to_add_all:
-        manufacturer_name = device['Manufacturers'].lower().replace(" ", "-")
+        manufacturer_name = device['Manufacturers']
         if manufacturer_name in manufacturer_id_map:
             device['id'] = manufacturer_id_map[manufacturer_name]
+        else:
+            device['id'] = None
+            logger.error(f"manufacturer {manufacturer_name} non presente in netbox")
 
     for elem in to_add_all:
         if 'Device Type' in elem:
@@ -509,13 +494,16 @@ def main():
 
     for device in to_add_all:
         try:
-            nbox.create_device_type(device['id'], device["Device Type"])
-            logger.info(f"Device type '{device['Device Type']}' con ID {device['id']} creato con successo.")
+            if device['id']:
+                nbox.create_device_type(device['id'], device["Device Type"])
+                logger.info(f"Device type '{device['Device Type']}' con ID {device['id']} creato con successo.")
+            else:
+                logger.error(f"Device type '{device['Device Type']}' non creato per mancanza manufacturer")
         except requests.HTTPError as he:
             if he.response.status_code == 400 and "already exists" in he.response.text:
                 logger.info(f"Device type '{device['Device Type']}' con ID {device['id']} già esiste. Ignorato.")
             else:
-                raise he
+                logger.error(f"Device type '{device['Device Type']}' non creato errore {he}")
 
     logger.info("Check su Device Type Fatto!")
 
@@ -562,7 +550,7 @@ def main():
         connection_type_id = get_connection_type_id(conn_type, all_conn_type)
         device_type_id = get_dev_type_id(device_type, all_dev_type)
         platform_id = get_platform_id(platform_name, filtered_platforms)
-        manufacturer_id = get_manufacturer_id(manufacturer_name, id_man_to_associate)
+        manufacturer_id = get_manufacturer_id(manufacturer_name, manufacturer_id_map)
         role_id = get_role_id(role_name, filtered_roles)
         network_layer_id = get_network_layer_id(network_layer_name, filtered_net_layer)
 
@@ -611,7 +599,7 @@ def main():
         sla = device.get("SLA")
 
         try:
-            if pd.notna(name):
+            if pd.notna(name) and device_type:
                 nbox.create_device(
                     name, device_type, role, tenant, platform, serial, site, location, conn_id,
                     snmp_com_device, net_layer, data_fine, data_inizio, rma, sla
@@ -625,10 +613,11 @@ def main():
         except requests.HTTPError as he:
             if he.response.status_code == 400:
                 logger.info(f"Il device '{name}' già esiste. Ignorato.")
+            else:
+                lista_device_non_aggiunti.append(device)
 
-    logger.info("I devices che non si sono potuti aggiungere sono:")
     for elemento in lista_device_non_aggiunti:
-        logger.info(str(elemento.get("Device Name")))
+        logger.info(f"{elemento.get('Device Name')} non creato!")
 
     ## INTERFACCE ##
     logger.info("Creazione delle Interfacce")
