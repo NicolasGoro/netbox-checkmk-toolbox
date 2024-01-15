@@ -1,6 +1,7 @@
 import requests
 import logging
 import urllib3
+import pandas
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -28,6 +29,10 @@ class YNetbox(object):
             if raw_res.status_code != 204:
                 return raw_res.json()
 
+        except requests.HTTPError as he:
+            if he.response.status_code != 400:
+                self.logger.exception(f"Error on {method} {url} request with {kwargs}, details: {he}")
+            raise
         except Exception as e:
             self.logger.exception(
                 f"Error on {method} {url} request with {kwargs}, details: {e}")
@@ -49,22 +54,52 @@ class YNetbox(object):
     # GET FUNCTIONS
 
     def get_tenants(self):
-        return self.get("/tenancy/tenants")['results']
+        LIMIT = 999
+        res = self.get("/tenancy/tenants", params={"limit": LIMIT})
+        while res['next'] is not None:
+            res_tmp = self.get(url=res['next'], full_url=True)
+            res['results'] += res_tmp['results']
+            res['next'] = res_tmp['next']
+        return res['results']
 
     def get_sites(self):
-        return self.get("/dcim/sites")['results']
+        LIMIT = 999
+        res = self.get("/dcim/sites", params={"limit": LIMIT})
+        while res['next'] is not None:
+            res_tmp = self.get(url=res['next'], full_url=True)
+            res['results'] += res_tmp['results']
+            res['next'] = res_tmp['next']
+        return res['results']
 
     def get_locations(self):
-        return self.get("/dcim/locations")['results']
+        LIMIT = 999
+        res = self.get("/dcim/locations", params={"limit": LIMIT})
+        while res['next'] is not None:
+            res_tmp = self.get(url=res['next'], full_url=True)
+            res['results'] += res_tmp['results']
+            res['next'] = res_tmp['next']
+        return res['results']
 
     def get_devices(self):
-        return self.get("/dcim/devices")
+        LIMIT = 999
+        res = self.get("/dcim/devices", params={"limit": LIMIT})
+        while res['next'] is not None:
+            res_tmp = self.get(url=res['next'], full_url=True)
+            res['results'] += res_tmp['results']
+            res['next'] = res_tmp['next']
+        return res['results']
 
     def get_manufacturers(self):
         return self.get("/dcim/manufacturers")
 
     def get_devices_type(self):
-        return self.get("/dcim/device-types")
+        LIMIT = 999
+        res = self.get("/dcim/device-types", params={"limit": LIMIT})
+        while res['next'] is not None:
+            res_tmp = self.get(url=res['next'], full_url=True)
+            res['results'] += res_tmp['results']
+            res['next'] = res_tmp['next']
+        return res['results']
 
     def get_devices_roles(self):
         return self.get("/dcim/device-roles")['results']
@@ -76,16 +111,34 @@ class YNetbox(object):
         return self.get("/extras/custom-field-choice-sets/1/choices")['results']
 
     def get_interfaces(self):
-        return self.get("/dcim/interfaces")
+        LIMIT = 999
+        res = self.get("/dcim/interfaces", params={"limit": LIMIT})
+        while res['next'] is not None:
+            res_tmp = self.get(url=res['next'], full_url=True)
+            res['results'] += res_tmp['results']
+            res['next'] = res_tmp['next']
+        return res['results']
 
     def get_platforms(self):
         return self.get("/dcim/platforms")['results']
 
     def get_IPs_address(self):
-        return self.get("/ipam/ip-addresses")
+        LIMIT = 999
+        res = self.get("/ipam/ip-addresses", params={"limit": LIMIT})
+        while res['next'] is not None:
+            res_tmp = self.get(url=res['next'], full_url=True)
+            res['results'] += res_tmp['results']
+            res['next'] = res_tmp['next']
+        return res['results']
 
     def get_virtual_chassis(self):
-        return self.get("/dcim/virtual-chassis")['results']
+        LIMIT = 999
+        res = self.get("/dcim/virtual-chassis", params={"limit": LIMIT})
+        while res['next'] is not None:
+            res_tmp = self.get(url=res['next'], full_url=True)
+            res['results'] += res_tmp['results']
+            res['next'] = res_tmp['next']
+        return res['results']
 
     # POST FUNCTIONS - Creazione Oggetti
 
@@ -133,14 +186,14 @@ class YNetbox(object):
             "location": location_id,
             "status": "active",
             "custom_fields": {
-                "conn_type": [conn_id],
+                "conn_type": [conn_id] if conn_id else None,
                 "snmp": True,
                 "snmp_community_device": snmp_com_device,
-                "net_layer": [net_layer_id],
+                "net_layer": [net_layer_id] if net_layer_id else None,
                 "end_contract": data_fine,
                 "start_contract": data_inizio,
-                "rma": [rma],
-                "sla": [sla]
+                "rma": [rma] if (rma and not pandas.isna(rma)) else None,
+                "sla": [sla] if (sla and not pandas.isna(sla)) else None
             }}
         return self.post("/dcim/devices/", json=device_data)
 

@@ -26,7 +26,7 @@ if len(sys.argv) == 2:
 else:
     print(f"Usage: python3 tool.py <filename>")
     print("Filename missing!")
-    exit(1)
+    path = "dati.csv"
 
 nbox = YNetbox(**conf['netbox'])
 
@@ -73,10 +73,10 @@ def extract_all_objects_row(file_path):
             "SLA": row["SLA"],
             "On site": "No" if pd.isna(row["On site"]) else row["On site"],
             "Fornitore": "NON_PRESENTE" if pd.isna(row["Fornitore"]) else row["Fornitore"],
-            "SNMP": "NON_PRESENTE" if pd.isna(row["SNMP"]) else row["SNMP"],
-            "snmp_community_device": "NON_PRESENTE" if pd.isna(row["snmp_community_device"]) else row[
+            "SNMP": None if pd.isna(row["SNMP"]) else row["SNMP"],
+            "snmp_community_device": None if pd.isna(row.get("snmp_community_device")) else row[
                 "snmp_community_device"],
-            "snmp_community_city": "NON_PRESENTE" if pd.isna(row["snmp_community_city"]) else row[
+            "snmp_community_city": None if pd.isna(row.get("snmp_community_city")) else row[
                 "snmp_community_city"],
             "Data inizio contratto": datetime.strftime(row["Data inizio contratto"], "%Y-%m-%d") if not pd.isna(
                 row["Data inizio contratto"]) else "NON PRESENTE",
@@ -85,10 +85,10 @@ def extract_all_objects_row(file_path):
             "Maintenance": row["Maintenance"],
             "Monitoraggio": row["Monitoraggio"],
             "Connection Type": row["Connection Type"],
-            "Severity device": int(row["Severity device"]) if not pd.isna(row["Severity device"]) else "NON PRESENTE",
-            "Network Layer": row["Network Layer\u00a0"] if not pd.isna(row["Network Layer\u00a0"]) else "NON PRESENTE",
+            "Severity device": int(row["Severity device"]) if not pd.isna(row["Severity device"]) else None,
+            "Network Layer": row["Network Layer\u00a0"] if not pd.isna(row["Network Layer\u00a0"]) else None,
             "Manufacturers": row["Manufacturers"],
-            "Platform": row["Platform "] if not pd.isna(row["Platform "]) else "NON PRESENTE"
+            "Platform": row["Platform "] if not pd.isna(row["Platform "]) else None
         }
 
         # Aggiungi il dizionario alla lista
@@ -178,11 +178,11 @@ def extract_and_concatenate_unique(file_path):
 
 # CSV
 def process_csv(input_file):
-    logger.info("Inserisci il nome del Tenant")
+    print("Inserisci il nome del Tenant")
     tenant_add = input()
-    logger.info("Inserisci il nome del Site")
+    print("Inserisci il nome del Site")
     site_add = input()
-    logger.info("Inserisci la Location nella forma nazione_citta es: ita_montebelluna")
+    print("Inserisci la Location nella forma nazione_citta es: ita_montebelluna")
     location_add = input()
     result_list = []
 
@@ -191,7 +191,7 @@ def process_csv(input_file):
 
         for row in csv_reader:
             entry = {
-                "Hostname": row.get("Hostname", "NON PRESENTE"),
+                "Device Name": row.get("Hostname", "NON PRESENTE"),
                 "Tenant": tenant_add.replace("à", "a").replace("è", "e").replace("é", "e").replace("ù", "u").replace(
                     "ì", "i").replace("ò", "o"),
                 "Country": location_add[:3],
@@ -208,12 +208,14 @@ def process_csv(input_file):
                 "Device Type": row.get("Model", "NON PRESENTE"),
                 "Login IP": row.get("Login IP", "NON PRESENTE"),
                 "Serial Number": row.get("Serial Number", "NON PRESENTE"),
-                "Platform": row.get("Platform", "NON PRESENTE")
+                "Platform": row.get("Family", "NON PRESENTE"),
+                "Device Role": row.get("Type", "NON PRESENTE"),
+                "Manufacturers": row.get("Vendor", "NON PRESENTE")
             }
 
             result_list.append(entry)
 
-    return result_list
+    return result_list, location_add
 
 
 # Utility
@@ -347,15 +349,15 @@ def main():
 
         # Stampa la lista di oggetti JSON
         for json_obj in all_devices:
-            logger.debug(json.dumps(json_obj, indent=4))
+            logger.debug(json.dumps(json_obj))
 
         # Estrai Tenant
         tenant_add = estrai_elementi_unici(all_devices, chiave_da_estrazione='Tenant')
-        logger.info("I Tenants trovati sull'Excel sono:\n>", tenant_add, "\n")
+        logger.info(f"I Tenants trovati sull'Excel sono:{tenant_add}")
 
         # Estrai Device-Type
         device_type_add = estrai_elementi_unici(all_devices, chiave_da_estrazione='Device Type')
-        logger.info("I Device-Type trovati sull'Excel sono:\n>", device_type_add, "\n")
+        logger.info(f"I Device-Type trovati sull'Excel sono: {device_type_add}")
         # Applica la funzione di filtraggio a ciascun elemento della lista
         filtered_device_type_add = [filter_json(item) for item in all_devices]
 
@@ -363,29 +365,33 @@ def main():
 
         device_manufacturers_add = estrai_elementi_unici(all_devices, chiave_da_estrazione='Manufacturers')
         if np.nan in device_manufacturers_add: device_manufacturers_add.remove(np.nan)
-        logger.info("I manufacturers trovati sull'Excel sono:\n>", device_manufacturers_add, "\n")
+        logger.info(f"I manufacturers trovati sull'Excel sono: {device_manufacturers_add}")
 
         # Estrai Site
         site_add = estrai_elementi_unici(all_devices, chiave_da_estrazione='Site')
-        logger.info("I Sites trovati sull'Excel sono:\n>", site_add, "\n")
+        logger.info(f"I Sites trovati sull'Excel sono: {site_add}")
 
         # Estrai Location
         locations_add = extract_and_concatenate_unique(path)
         locations_add = [item for item in locations_add if "_n.d." not in item]
-        logger.info("Le Locations trovate sull'Excel sono:\n>", locations_add, "\n")
+        logger.info(f"Le Locations trovate sull'Excel sono: {locations_add}")
         logger.info('finita estrazione excel')
 
 
     elif file_extension.lower() == '.csv':
-        all_devices = process_csv(path)
+        all_devices, location_add = process_csv(path)
+        locations_add = [location_add]
         logger.debug(
-            json.dumps(all_devices, indent=4))  # stampo solo la lista dei device, se voglio gli altri cambio numero
+            json.dumps(all_devices))  # stampo solo la lista dei device, se voglio gli altri cambio numero
 
         tenant_add = estrai_elementi_unici(all_devices, chiave_da_estrazione='Tenant')
-        logger.info("Tenant CSV:\n>", tenant_add, "\n")
+        logger.info(f"Tenant CSV:> {tenant_add}")
 
         site_add = estrai_elementi_unici(all_devices, chiave_da_estrazione='Site')
-        logger.info("I Sites trovati sull'Excel sono:\n>", site_add, "\n")
+        logger.info(f"I Sites trovati sull'Excel sono: {site_add}")
+
+        device_manufacturers_add = estrai_elementi_unici(all_devices, chiave_da_estrazione='Manufacturers')
+        filtered_device_type_add = estrai_elementi_unici(all_devices, chiave_da_estrazione='Device Type')
 
         logger.info('finita estrazione CSV')
     else:
@@ -409,7 +415,7 @@ def main():
         else:
             logger.info(f"Tenant {tenants_to_add} già presente")
     pass
-    logger.info("Il Tenant ha id = ", tenant_id)
+    logger.info("Il Tenant ha id {tenant_id}")
     # SITES
     sites = nbox.get_sites()
     for site_to_add in site_add:
@@ -422,7 +428,7 @@ def main():
         else:
             logger.info(f"site {site_to_add} già presente")
     pass
-    logger.info("Il Site ha id = ", site_id, "\n")
+    logger.info(f"Il Site ha id {site_id}")
 
     # LOCATIONS
     locations = nbox.get_locations()
@@ -435,7 +441,10 @@ def main():
         # logger.info(location_id)
         if location_id is None:
             logger.info(f"location {loc_to_add} mancante, lo creo")
-            location_result = nbox.create_loction(loc_to_add, site_id, tenant_id, snmp_community_location[0])
+            if snmp_community_location:
+                location_result = nbox.create_loction(loc_to_add, site_id, tenant_id, snmp_community_location[0])
+            else:
+                location_result = nbox.create_loction(loc_to_add, site_id, tenant_id, None)
             locations.append(location_result)
         else:
             logger.info(f"location {loc_to_add} già presente")
@@ -446,25 +455,25 @@ def main():
     all_manufacturers_nbox = nbox.get_manufacturers()
     list_all_manufacturers_nbox = []
     for all_manufacturers in all_manufacturers_nbox["results"]:
-        list_all_manufacturers_nbox.append(all_manufacturers["name"])
+        list_all_manufacturers_nbox.append(all_manufacturers["slug"])
 
-    manufacturers_list = nbox.get_manufacturers()['results']
+    manufacturers_list = all_manufacturers_nbox['results']
     for elemento in device_manufacturers_add:
-        if elemento in list_all_manufacturers_nbox:
-            logger.info(f"\n > La location {elemento} è già presente")
+        if elemento.lower().replace(" ", "-") in list_all_manufacturers_nbox:
+            logger.info(f"Il manufacturer {elemento} è già presente")
         else:
-            logger.info(f"\n La location {elemento} non presente, la creo")
+            logger.info(f"Il manufacturer {elemento} non presente, la creo")
             manufacturers_result = nbox.create_manufacturer(elemento, elemento)
             manufacturers_list.append(manufacturers_result)
 
     # Lista con manufacturers e ID associato
     id_man_to_associate = [{'name': manufacturer['display'], 'id': manufacturer['id']} for manufacturer in
                            manufacturers_list]
-    logger.info("Gestione dei Manufacturers completata:\n", json.dumps(id_man_to_associate, indent=4))
+    logger.info(f"Gestione dei Manufacturers completata: f{json.dumps(id_man_to_associate)}")
 
     # CHEK DEVICE TYPE
     # NETBOX 
-    device_type_nbox = nbox.get_devices_type()['results']
+    device_type_nbox = nbox.get_devices_type()
     all_device_type_on_nbox = []
     for item in device_type_nbox:
         device_type = {"device_type": item["display"]}
@@ -483,14 +492,14 @@ def main():
             pass
 
     to_add_all = [device for device in to_add if all(key in device for key in ['Device Type', 'Manufacturers'])]
-    logger.info("I Device Type da provare ad aggiungere sono: \n", json.dumps(to_add_all, indent=4))
+    logger.info(f"I Device Type da provare ad aggiungere sono: {json.dumps(to_add_all)}")
 
     manufacturers_ids = nbox.get_manufacturers()["results"]
 
     manufacturer_id_map = {manufacturer['name']: manufacturer['id'] for manufacturer in id_man_to_associate}
     # Aggiungi l'id corrispondente a ciascun dispositivo
     for device in to_add_all:
-        manufacturer_name = device['Manufacturers']
+        manufacturer_name = device['Manufacturers'].lower().replace(" ", "-")
         if manufacturer_name in manufacturer_id_map:
             device['id'] = manufacturer_id_map[manufacturer_name]
 
@@ -508,7 +517,7 @@ def main():
             else:
                 raise he
 
-    logger.info("Check su Device Type Fatto!\n")
+    logger.info("Check su Device Type Fatto!")
 
     # GESTIONE DEI DEVICE
 
@@ -528,8 +537,8 @@ def main():
     # Plat -> ID
     filtered_platforms = [{"id": item["id"], "name": item["name"]} for item in nbox.get_platforms()]
 
-    # logger.info(json.dumps(nbox.get_devices_type()["results"], indent=4))
-    all_dev_type = [{"id": item["id"], "name": item["display"]} for item in nbox.get_devices_type()["results"]]
+    # logger.info(json.dumps(nbox.get_devices_type()["results"]))
+    all_dev_type = [{"id": item["id"], "name": item["display"]} for item in nbox.get_devices_type()]
 
     all_conn_type = [{"id": item["id"], "name": item["display"]} for item in nbox.get_devices_connection_type()]
 
@@ -540,7 +549,7 @@ def main():
     # Aggiorna la lista dei dispositivi con gli ID dei ruoli e dei layer di rete
     for device in all_devices:
         role_name = device["Device Role"]
-        network_layer_name = device["Network Layer"]
+        network_layer_name = device.get("Network Layer")
         platform_name = device["Platform"]
         manufacturer_name = device["Manufacturers"]
         device_type = device["Device Type"].replace(" ", "-")
@@ -602,7 +611,7 @@ def main():
         sla = device.get("SLA")
 
         try:
-            if pd.notna(name) and pd.notna(snmp_com_device) and snmp_com_device != "NON_PRESENTE":
+            if pd.notna(name):
                 nbox.create_device(
                     name, device_type, role, tenant, platform, serial, site, location, conn_id,
                     snmp_com_device, net_layer, data_fine, data_inizio, rma, sla
@@ -617,14 +626,14 @@ def main():
             if he.response.status_code == 400:
                 logger.info(f"Il device '{name}' già esiste. Ignorato.")
 
-    logger.info("\nI devices che non si sono potuti aggiungere sono:")
+    logger.info("I devices che non si sono potuti aggiungere sono:")
     for elemento in lista_device_non_aggiunti:
-        logger.info("> ", elemento.get("Device Name"))
+        logger.info(str(elemento.get("Device Name")))
 
     ## INTERFACCE ##
-    logger.info("\nCreazione delle Interfacce")
+    logger.info("Creazione delle Interfacce")
     devices_added = nbox.get_devices()
-    device_name_id = [{"id": item["id"], "name": item["name"]} for item in devices_added['results']]
+    device_name_id = [{"id": item["id"], "name": item["name"]} for item in devices_added]
 
     for device in device_name_id:
         name = device.get("name")
@@ -637,9 +646,9 @@ def main():
                 logger.info(f"Interfaccia '{name}' già esiste. Ignorata.")
 
     ## IP ADDRESS ##
-    interfaces_ids = nbox.get_interfaces()['results']
+    interfaces_ids = nbox.get_interfaces()
     interface_device_info = [{"id": item["id"], "name": item["device"]["name"]} for item in interfaces_ids]
-    logger.debug(json.dumps(interface_device_info, indent=4))
+    logger.debug(json.dumps(interface_device_info))
 
     # Dispositivi rimanenti
     filtered_devices = []
@@ -649,7 +658,7 @@ def main():
 
         # Verifica se il nome del dispositivo è nella lista dei non aggiunti
         if device_name not in [device['Device Name'] for device in lista_device_non_aggiunti] and str(
-                device_name) != 'nan':
+                device_name) != 'nan' and device['Management IP Address'] != "NON_PRESENTE":
             filtered_devices.append(device)
 
     # lista da passare alla Function crea_IP
@@ -672,7 +681,7 @@ def main():
             address_interface_list.append(result_item)
 
     # Stampa la lista finale
-    logger.info("Correlazione tra Interfacce e IP\n", address_interface_list, "\n")
+    logger.info(f"Correlazione tra Interfacce e IP {address_interface_list}")
 
     for ip_info in address_interface_list:
         address = ip_info['Management IP Address']
@@ -688,12 +697,12 @@ def main():
 
     ips_address = nbox.get_IPs_address()
     all_ip_filtered = [{"id": item["id"], "name": item["assigned_object"]["device"]["name"]} for item in
-                       ips_address["results"]]
-    logger.debug(json.dumps(all_ip_filtered, indent=4))
+                       ips_address]
+    logger.debug(json.dumps(all_ip_filtered))
 
     device_now_on_netbox = nbox.get_devices()
-    devices_filtered = [{"id": item["id"], "name": item["name"]} for item in device_now_on_netbox["results"]]
-    logger.debug(json.dumps(devices_filtered, indent=4))
+    devices_filtered = [{"id": item["id"], "name": item["name"]} for item in device_now_on_netbox]
+    logger.debug(json.dumps(devices_filtered))
 
     # Dizionario per associare il nome del dispositivo ai dettagli del dispositivo
     device_details_dict = {device['Device Name']: device for device in all_devices}
@@ -718,7 +727,7 @@ def main():
             not_found_devices.append(device_name)
 
     # Stampa il risultato
-    logger.info("Dispositivi trovati:", json.dumps(result_list, indent=2), "\n")
+    logger.info(f"Dispositivi trovati: {json.dumps(result_list)}")
 
     # Creazione di un dizionario di corrispondenza tra name e id_ip
     name_to_id_ip = {item['Device Name']: item['id_ip'] for item in result_list}
@@ -728,7 +737,7 @@ def main():
                    devices_filtered]
 
     # Stampa della lista risultante
-    logger.info("Gli IP associati ai device da aggiungere sono:\n", json.dumps(ip_to_patch, indent=2))
+    logger.info(f"Gli IP associati ai device da aggiungere sono: {json.dumps(ip_to_patch)}")
 
     for elem in ip_to_patch:
         id_address = elem['id_ip']
@@ -758,10 +767,10 @@ def main():
                    for item in result_list]
 
     # Stampa la lista risultante
-    logger.debug(json.dumps(result_list, indent=4))
+    logger.debug(json.dumps(result_list))
 
     device_match_for_VC = match_for_VC(devices_filtered, result_list)
-    logger.debug(json.dumps(device_match_for_VC, indent=4))
+    logger.debug(json.dumps(device_match_for_VC))
 
     for device in device_match_for_VC:
         try:
@@ -775,7 +784,7 @@ def main():
                 pass
 
     extract_vc = [{"id": item["id"], "name": item["name"]} for item in nbox.get_virtual_chassis()]
-    logger.debug(json.dumps(extract_vc, indent=4))
+    logger.debug(json.dumps(extract_vc))
 
     # Rimuovi gli elementi con "/" nel nome
     elabora_dev_vc = [item for item in device_match_for_VC if '/' in item['name']]
@@ -788,8 +797,7 @@ def main():
         item['position'] = count_dict[prefix]
 
     # Stampa il risultato
-    logger.info("I devices che occorre elaborare per ricavare le posizioni nel VC sono:\n",
-                json.dumps(elabora_dev_vc, indent=4))
+    logger.info(f"I devices che occorre elaborare per ricavare le posizioni nel VC sono: {json.dumps(elabora_dev_vc)}")
 
     dev_to_update_vc = []
 
@@ -802,7 +810,7 @@ def main():
                     "position_in_vc": first_item['position']
                 })
 
-    logger.debug(json.dumps(dev_to_update_vc, indent=4))
+    logger.debug(json.dumps(dev_to_update_vc))
 
     for item in dev_to_update_vc:
         try:
