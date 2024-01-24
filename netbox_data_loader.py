@@ -545,6 +545,7 @@ def main():
         city = device.get("City", "")
         device["Location"] = f"{country}_{city}"
         conn_type = device.get("Connection Type")
+        severity_dev=device.get("Severity device")
 
         connection_type_id = get_connection_type_id(conn_type, all_conn_type)
         device_type_id = get_dev_type_id(device_type, all_dev_type)
@@ -571,6 +572,7 @@ def main():
         device["Device Role"] = role_id
         device["Network Layer"] = network_layer_id
         # Aggiorna i valori nei dispositivi
+        device["Severity device"]=severity_dev
         device["Platform"] = platform_id
         device["Manufacturers"] = manufacturer_id
         device["Connection Type"] = connection_type_id
@@ -594,6 +596,11 @@ def main():
         net_layer = device.get("Network Layer")
         data_fine = device.get("Data fine contratto")
         data_inizio = device.get("Data inizio contratto")
+        sev_lvl = str(device.get("Severity device"))
+        if sev_lvl_str in ["1", "2", "3", "4"]:
+            sev_lvl = sev_lvl_str
+        else:
+            sev_lvl = None
         rma = "Vendor"
         sla = device.get("SLA")
 
@@ -601,7 +608,7 @@ def main():
             if pd.notna(name) and device_type:
                 nbox.create_device(
                     name, device_type, role, tenant, platform, serial, site, location, conn_id,
-                    snmp_com_device, net_layer, data_fine, data_inizio, rma, sla
+                    snmp_com_device, net_layer, data_fine, data_inizio, rma, sla, sev_lvl
                 )
                 logger.info(f"Device '{name}' creato con successo.")
 
@@ -684,8 +691,8 @@ def main():
             logger.error(f"IP address {address} not created error {e}")
 
     ips_address = nbox.get_IPs_address()
-    all_ip_filtered = [{"id": item["id"], "name": item["assigned_object"]["device"]["name"]} for item in
-                       ips_address]
+    all_ip_filtered = [{"id": item["id"], "name": item["assigned_object"]["device"]["name"]} for item in ips_address if item["assigned_object"] is not None]
+    #all_ip_filtered = [{"id": item["id"], "name": item["assigned_object"]["device"]["name"]} for item in ips_address]
     logger.debug(json.dumps(all_ip_filtered))
 
     device_now_on_netbox = nbox.get_devices()

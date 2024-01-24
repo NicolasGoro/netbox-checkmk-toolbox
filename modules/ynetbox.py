@@ -182,7 +182,7 @@ class YNetbox(object):
         return self.post("/dcim/locations/", json=location_data)
 
     def create_device(self, name, device_id, role_id, tenant_id, platform_id, serial_number, site_id, location_id,
-                      conn_id, snmp_com_device, net_layer_id, data_fine, data_inizio, rma, sla):
+                      conn_id, snmp_com_device, net_layer_id, data_fine, data_inizio, rma, sla, sev_lvl):
         device_data = {
             "name": name,
             "device_type": device_id,
@@ -201,7 +201,8 @@ class YNetbox(object):
                 "end_contract": data_fine,
                 "start_contract": data_inizio,
                 "rma": [rma] if (rma and not pandas.isna(rma)) else None,
-                "sla": [sla] if (sla and not pandas.isna(sla)) else None
+                "sla": [sla] if (sla and not pandas.isna(sla)) else None,
+                "severity_type": sev_lvl if (sev_lvl and not pandas.isna(sev_lvl)) else None
             }}
         return self.post("/dcim/devices/", json=device_data)
 
