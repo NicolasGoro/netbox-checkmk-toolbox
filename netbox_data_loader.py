@@ -414,7 +414,7 @@ def main():
         else:
             logger.info(f"Tenant {tenants_to_add} già presente")
     pass
-    logger.info("Il Tenant ha id {tenant_id}")
+    logger.info(f"Il Tenant ha id {tenant_id}")
     # SITES
     sites = nbox.get_sites()
     for site_to_add in site_add:
