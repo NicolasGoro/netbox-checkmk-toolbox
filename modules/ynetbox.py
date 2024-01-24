@@ -1,6 +1,7 @@
 import requests
 import logging
 import urllib3
+import pandas
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -21,13 +22,19 @@ class YNetbox(object):
                                        headers=self.headers,
                                        timeout=timeout,
                                        verify=False, **kwargs)
-            
-            #print(raw_res.text)
+
+            # print(raw_res.text)
             raw_res.raise_for_status()
 
             if raw_res.status_code != 204:
                 return raw_res.json()
 
+        except requests.HTTPError as he:
+            if ((he.response.status_code != 400 or "already exists" not in he.response.text)
+                    and not "dcim_device_unique_name_site_tenant" in he.response.text
+                    and not "Duplicate IP address" in he.response.text and not "Related object not found using the provided attributes" in he.response.text):
+                self.logger.exception(f"Error on {method} {url} request with {kwargs}, details: {he} {he.response.text}")
+            raise
         except Exception as e:
             self.logger.exception(
                 f"Error on {method} {url} request with {kwargs}, details: {e}")
@@ -46,49 +53,96 @@ class YNetbox(object):
     def put(self, url, json, **kwargs):
         return self._request("PUT", url=url, json=json, **kwargs)
 
-# GET FUNCTIONS
+    # GET FUNCTIONS
 
     def get_tenants(self):
-        return self.get("/tenancy/tenants")['results']
+        LIMIT = 999
+        res = self.get("/tenancy/tenants", params={"limit": LIMIT})
+        while res['next'] is not None:
+            res_tmp = self.get(url=res['next'], full_url=True)
+            res['results'] += res_tmp['results']
+            res['next'] = res_tmp['next']
+        return res['results']
 
     def get_sites(self):
-        return self.get("/dcim/sites")['results']
+        LIMIT = 999
+        res = self.get("/dcim/sites", params={"limit": LIMIT})
+        while res['next'] is not None:
+            res_tmp = self.get(url=res['next'], full_url=True)
+            res['results'] += res_tmp['results']
+            res['next'] = res_tmp['next']
+        return res['results']
 
     def get_locations(self):
-        return self.get("/dcim/locations")['results']
+        LIMIT = 999
+        res = self.get("/dcim/locations", params={"limit": LIMIT})
+        while res['next'] is not None:
+            res_tmp = self.get(url=res['next'], full_url=True)
+            res['results'] += res_tmp['results']
+            res['next'] = res_tmp['next']
+        return res['results']
 
     def get_devices(self):
-        return self.get("/dcim/devices")
+        LIMIT = 999
+        res = self.get("/dcim/devices", params={"limit": LIMIT})
+        while res['next'] is not None:
+            res_tmp = self.get(url=res['next'], full_url=True)
+            res['results'] += res_tmp['results']
+            res['next'] = res_tmp['next']
+        return res['results']
 
     def get_manufacturers(self):
         return self.get("/dcim/manufacturers")
 
     def get_devices_type(self):
-        return self.get("/dcim/device-types")
-    
+        LIMIT = 999
+        res = self.get("/dcim/device-types", params={"limit": LIMIT})
+        while res['next'] is not None:
+            res_tmp = self.get(url=res['next'], full_url=True)
+            res['results'] += res_tmp['results']
+            res['next'] = res_tmp['next']
+        return res['results']
+
     def get_devices_roles(self):
         return self.get("/dcim/device-roles")['results']
-    
+
     def get_devices_net_layer(self):
         return self.get("/extras/custom-field-choice-sets/2/choices")['results']
-    
+
     def get_devices_connection_type(self):
         return self.get("/extras/custom-field-choice-sets/1/choices")['results']
 
     def get_interfaces(self):
-        return self.get("/dcim/interfaces")
-    
+        LIMIT = 999
+        res = self.get("/dcim/interfaces", params={"limit": LIMIT})
+        while res['next'] is not None:
+            res_tmp = self.get(url=res['next'], full_url=True)
+            res['results'] += res_tmp['results']
+            res['next'] = res_tmp['next']
+        return res['results']
+
     def get_platforms(self):
         return self.get("/dcim/platforms")['results']
-    
-    def get_IPs_address(self):
-        return self.get("/ipam/ip-addresses")
-    
-    def get_virtual_chassis(self):
-        return self.get("/dcim/virtual-chassis")['results']
-    
 
-# POST FUNCTIONS - Creazione Oggetti
+    def get_IPs_address(self):
+        LIMIT = 999
+        res = self.get("/ipam/ip-addresses", params={"limit": LIMIT})
+        while res['next'] is not None:
+            res_tmp = self.get(url=res['next'], full_url=True)
+            res['results'] += res_tmp['results']
+            res['next'] = res_tmp['next']
+        return res['results']
+
+    def get_virtual_chassis(self):
+        LIMIT = 999
+        res = self.get("/dcim/virtual-chassis", params={"limit": LIMIT})
+        while res['next'] is not None:
+            res_tmp = self.get(url=res['next'], full_url=True)
+            res['results'] += res_tmp['results']
+            res['next'] = res_tmp['next']
+        return res['results']
+
+    # POST FUNCTIONS - Creazione Oggetti
 
     def create_tenant(self, name, description="", comments=""):
         tenant_data = {
@@ -121,27 +175,28 @@ class YNetbox(object):
         }
         return self.post("/dcim/locations/", json=location_data)
 
-    def create_device(self, name, device_id, role_id, tenant_id, platform_id, serial_number, site_id, location_id, conn_id, snmp_com_device, net_layer_id, data_fine, data_inizio, rma, sla):
+    def create_device(self, name, device_id, role_id, tenant_id, platform_id, serial_number, site_id, location_id,
+                      conn_id, snmp_com_device, net_layer_id, data_fine, data_inizio, rma, sla):
         device_data = {
             "name": name,
-            "device_type": device_id, 
+            "device_type": device_id,
             "role": role_id,
             "tenant": tenant_id,
             "platform": platform_id,
-            "serial": serial_number,  # string
+            "serial": serial_number if not pandas.isna(serial_number) else "",  # string
             "site": site_id,
             "location": location_id,
             "status": "active",
             "custom_fields": {
-                "conn_type": [conn_id],
+                "conn_type": [conn_id] if conn_id else None,
                 "snmp": True,
                 "snmp_community_device": snmp_com_device,
-                "net_layer": [net_layer_id],
+                "net_layer": [net_layer_id] if net_layer_id else None,
                 "end_contract": data_fine,
                 "start_contract": data_inizio,
-                "rma": [rma],
-                "sla": [sla]
-        }}
+                "rma": [rma] if (rma and not pandas.isna(rma)) else None,
+                "sla": [sla] if (sla and not pandas.isna(sla)) else None
+            }}
         return self.post("/dcim/devices/", json=device_data)
 
     def create_manufacturer(self, name, dominio_description):
@@ -169,7 +224,7 @@ class YNetbox(object):
             "mgmt_only": True
         }
         return self.post("/dcim/interfaces/", json=interface_data)
-    
+
     def create_virtual_chassis(self, name, id_master):
         vc_data = {
             "name": name,
@@ -179,7 +234,6 @@ class YNetbox(object):
             "comments": " "
         }
         return self.post("/dcim/virtual-chassis/", json=vc_data)
-
 
     def create_ip_address(self, address, tenant_id, interface_id):
         address = f"{address}/32"
@@ -192,7 +246,7 @@ class YNetbox(object):
         }
         return self.post("/ipam/ip-addresses/", json=data_ip_addr)
 
-# PATCH FUNCTIONS -UPDATE- [ATTENZIONE I DATA SONO UN TYPE LIST]
+    # PATCH FUNCTIONS -UPDATE- [ATTENZIONE I DATA SONO UN TYPE LIST]
 
     def update_tenant(self, tenant_id, name, description="", comments=""):
         tenant_data = [
@@ -234,54 +288,52 @@ class YNetbox(object):
         ]
         return self.patch("/dcim/locations/", json=location_data)
 
-
     def update_device_with_IP(self, id_device, id_address):
-        device_data=[
+        device_data = [
             {
                 "id": id_device,
                 "primary_ip4": {
                     "id": id_address
-                    }
+                }
             }
         ]
         return self.patch("/dcim/devices/", json=device_data)
-    
-    def update_virtual_chassis(self, id_device_to_add, id_VC, position):
-        device_data=[
-            {
-            "id" : id_device_to_add,
-            "virtual_chassis": id_VC,
-            "vc_position": position
-            }
-        ]
-        return self.patch("/dcim/devices/", json=device_data)
-        
 
-    
-    def update_device(self, device_id, name, device_type_id, role_id, tenant_id, platform_id, serial_number, site_id, location_id, conn_id, snmp_com_device, net_layer_id, data_fine, data_inizio, rma, sla):
+    def update_virtual_chassis(self, id_device_to_add, id_VC, position):
         device_data = [
             {
-            "id": device_id,
-            "name": name,
-            "device_type": device_type_id, 
-            "role": role_id,
-            "tenant": tenant_id,
-            "platform": platform_id,
-            "serial": serial_number,  # string
-            "site": site_id,
-            "location": location_id,
-            "status": "active",
-            "custom_fields": {
-                "conn_type": [conn_id],
-                "snmp": True,
-                "snmp_community_device": snmp_com_device,
-                "net_layer": [net_layer_id],
-                "end_contract": data_fine,
-                "start_contract": data_inizio,
-                "rma": [rma],
-                "sla": [sla]
-                            }
-        }
+                "id": id_device_to_add,
+                "virtual_chassis": id_VC,
+                "vc_position": position
+            }
+        ]
+        return self.patch("/dcim/devices/", json=device_data)
+
+    def update_device(self, device_id, name, device_type_id, role_id, tenant_id, platform_id, serial_number, site_id,
+                      location_id, conn_id, snmp_com_device, net_layer_id, data_fine, data_inizio, rma, sla):
+        device_data = [
+            {
+                "id": device_id,
+                "name": name,
+                "device_type": device_type_id,
+                "role": role_id,
+                "tenant": tenant_id,
+                "platform": platform_id,
+                "serial": serial_number,  # string
+                "site": site_id,
+                "location": location_id,
+                "status": "active",
+                "custom_fields": {
+                    "conn_type": [conn_id],
+                    "snmp": True,
+                    "snmp_community_device": snmp_com_device,
+                    "net_layer": [net_layer_id],
+                    "end_contract": data_fine,
+                    "start_contract": data_inizio,
+                    "rma": [rma],
+                    "sla": [sla]
+                }
+            }
         ]
         return self.patch("/dcim/devices/", json=device_data)
 
