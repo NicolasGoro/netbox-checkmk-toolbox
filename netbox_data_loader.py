@@ -6,7 +6,7 @@ from datetime import datetime
 import ipaddress
 import csv
 import yaml
-from modules.ynetbox import YNetbox
+from modules.ynetbox import YNetbox, DuplicateObject
 import logging
 import numpy as np
 import requests
@@ -26,7 +26,7 @@ if len(sys.argv) == 2:
 else:
     print(f"Usage: python3 tool.py <filename>")
     print("Filename missing!")
-    exit(1)
+    path = "file3.xlsx"
 
 nbox = YNetbox(**conf['netbox'])
 
@@ -499,11 +499,10 @@ def main():
                 logger.info(f"Device type '{device['Device Type']}' con ID {device['id']} creato con successo.")
             else:
                 logger.error(f"Device type '{device['Device Type']}' non creato per mancanza manufacturer")
-        except requests.HTTPError as he:
-            if he.response.status_code == 400 and "already exists" in he.response.text:
-                logger.info(f"Device type '{device['Device Type']}' con ID {device['id']} già esiste. Ignorato.")
-            else:
-                logger.error(f"Device type '{device['Device Type']}' non creato errore {he}")
+        except DuplicateObject:
+            logger.info(f"Device type '{device['Device Type']}' con ID {device['id']} già esiste. Ignorato.")
+        except Exception as e:
+            logger.error(f"Device type '{device['Device Type']}' non creato errore {e}")
 
     logger.info("Check su Device Type Fatto!")
 
@@ -610,11 +609,10 @@ def main():
                 lista_device_non_aggiunti.append(device)
                 # all_devices.remove(device)
 
-        except requests.HTTPError as he:
-            if he.response.status_code == 400:
-                logger.info(f"Il device '{name}' già esiste. Ignorato.")
-            else:
-                lista_device_non_aggiunti.append(device)
+        except DuplicateObject:
+            logger.info(f"Il device '{name}' già esiste. Ignorato.")
+        except Exception as e:
+            lista_device_non_aggiunti.append(device)
 
     for elemento in lista_device_non_aggiunti:
         logger.info(f"{elemento.get('Device Name')} non creato!")
@@ -630,9 +628,10 @@ def main():
         try:
             nbox.create_interface(id_device, name)
             logger.info(f"Interfaccia '{name}' creata con successa.")
-        except requests.HTTPError as he:
-            if he.response.status_code == 400:
-                logger.info(f"Interfaccia '{name}' già esiste. Ignorata.")
+        except DuplicateObject:
+            logger.info(f"Interfaccia '{name}' già esiste. Ignorata.")
+        except Exception as e:
+            logger.error(f"errore {e} creando l'interfaccia {name}")
 
     ## IP ADDRESS ##
     interfaces_ids = nbox.get_interfaces()
@@ -679,10 +678,10 @@ def main():
         try:
             nbox.create_ip_address(address, tenant_id, interface_id)
             logger.info(f"IP Address '{address}' collegato a ID dell'interfaccia {interface_id} creato con successo.")
-        except requests.HTTPError as he:
-            if he.response.status_code == 400:
-                logger.info(
-                    f"IP Address '{address}' collegato a ID dell'interfaccia {interface_id} già esiste. Ignorato.")
+        except DuplicateObject:
+            logger.info(f"IP Address '{address}' collegato a ID dell'interfaccia {interface_id} già esiste. Ignorato.")
+        except Exception as e:
+            logger.error(f"IP address {address} not created error {e}")
 
     ips_address = nbox.get_IPs_address()
     all_ip_filtered = [{"id": item["id"], "name": item["assigned_object"]["device"]["name"]} for item in
@@ -734,9 +733,10 @@ def main():
         try:
             nbox.update_device_with_IP(id_device, id_address)
             logger.info(f"ID_ip Address '{id_address}' collegato a ID_device {id_device} con successo.")
-        except requests.HTTPError as he:
-            if he.response.status_code == 400:
-                logger.info(f"ID_ip Address '{id_address}' collegato a ID_device {id_device} già esiste. Ignorato.")
+        except DuplicateObject:
+            logger.info(f"ID_ip Address '{id_address}' collegato a ID_device {id_device} già esiste. Ignorato.")
+        except Exception as e:
+            logger.error(f"errore {e} durante l'associazione di {id_address} al device {id_device}")
 
     # VIRTUAL CHASSIS #############################################################################
     # lista dei device multipli da aggiungere ai vari VC
@@ -766,11 +766,10 @@ def main():
             if '/' not in device["name"]:
                 nbox.create_virtual_chassis(device["name"], device["id"])
                 logger.info(f"Creazione VC '{device['id']}' riuscita")
-        except requests.HTTPError as he:
-            if he.response.status_code == 400:
-                logger.info(f"creazione gia eseguita per VC con '{device['id']}' ")
-            else:
-                pass
+        except DuplicateObject:
+            logger.info(f"creazione gia eseguita per VC con '{device['id']}' ")
+        except Exception as e:
+            logger.error(f"errore {e} creando VD per '{device['id']}' ")
 
     extract_vc = [{"id": item["id"], "name": item["name"]} for item in nbox.get_virtual_chassis()]
     logger.debug(json.dumps(extract_vc))
@@ -808,11 +807,10 @@ def main():
             position_vc = item["position_in_vc"]
             nbox.update_virtual_chassis(id_device, id_vc, position_vc)
             logger.info(f"VC {id_device} settato con l'aggiunta dei devices richiesti")
-        except requests.HTTPError as he:
-            if he.response.status_code == 400:
-                logger.info(f"gia impostato")
-            else:
-                logger.info("error - impossibile eseguire l'update")
+        except DuplicateObject:
+            logger.info(f"gia impostato")
+        except Exception as e:
+            logger.info(f"error - impossibile eseguire l'update: {e}")
 
 
 if __name__ == "__main__":
