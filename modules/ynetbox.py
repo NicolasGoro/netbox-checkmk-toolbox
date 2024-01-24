@@ -6,6 +6,10 @@ import pandas
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
+class DuplicateObject(Exception):
+    pass
+
+
 class YNetbox(object):
     def __init__(self, ip, token):
         self.logger = logging.getLogger(__name__)
@@ -33,8 +37,10 @@ class YNetbox(object):
             if ((he.response.status_code != 400 or "already exists" not in he.response.text)
                     and not "dcim_device_unique_name_site_tenant" in he.response.text
                     and not "Duplicate IP address" in he.response.text and not "Related object not found using the provided attributes" in he.response.text):
-                self.logger.exception(f"Error on {method} {url} request with {kwargs}, details: {he} {he.response.text}")
-            raise
+                self.logger.exception(
+                    f"Error on {method} {url} request with {kwargs}, details: {he} {he.response.text}")
+                raise
+            raise DuplicateObject
         except Exception as e:
             self.logger.exception(
                 f"Error on {method} {url} request with {kwargs}, details: {e}")
