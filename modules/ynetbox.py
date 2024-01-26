@@ -118,9 +118,14 @@ class YNetbox(object):
     def get_devices_connection_type(self):
         return self.get("/extras/custom-field-choice-sets/1/choices")['results']
 
-    def get_interfaces(self):
+    def get_interfaces(self, site_ids=None):
         LIMIT = 999
-        res = self.get("/dcim/interfaces", params={"limit": LIMIT})
+        if site_ids is not None:
+            param_str = "&".join([f"site_id={v}" for v in site_ids] + [f"limit={LIMIT}"])
+        else:
+            param_str = f"limit={LIMIT}"
+
+        res = self.get("/dcim/interfaces/?param_str")
         while res['next'] is not None:
             res_tmp = self.get(url=res['next'], full_url=True)
             res['results'] += res_tmp['results']
@@ -130,9 +135,13 @@ class YNetbox(object):
     def get_platforms(self):
         return self.get("/dcim/platforms")['results']
 
-    def get_IPs_address(self):
+    def get_IPs_address(self, tenant_id=None):
         LIMIT = 999
-        res = self.get("/ipam/ip-addresses", params={"limit": LIMIT})
+        get_params = {"limit": LIMIT}
+        if tenant_id is not None:
+            get_params['tenant_id'] = tenant_id
+
+        res = self.get("/ipam/ip-addresses", params=get_params)
         while res['next'] is not None:
             res_tmp = self.get(url=res['next'], full_url=True)
             res['results'] += res_tmp['results']
