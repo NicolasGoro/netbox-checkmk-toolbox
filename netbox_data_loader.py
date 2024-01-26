@@ -17,8 +17,18 @@ import sys
 warnings.filterwarnings("ignore")
 cur_dir = os.path.abspath(os.path.dirname(__file__))
 conf = yaml.safe_load(open(os.path.join(cur_dir, "conf.yml")))
-logging.basicConfig(filename=os.path.join(cur_dir, "netbox_data_loader.log"), filemode='a+', level=logging.INFO,
-                    format='[%(levelname)s] %(asctime)s - %(name)s: %(message)s')
+#logging.basicConfig(filename=os.path.join(cur_dir, "netbox_data_loader.log"), filemode='a+', level=logging.INFO,
+#                    format='[%(levelname)s] %(asctime)s - %(name)s: %(message)s')
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(levelname)s] %(asctime)s - %(name)s: %(message)s",
+    handlers=[
+        logging.FileHandler(filename=os.path.join(cur_dir, "netbox_data_loader.log"), filemode='a+'),
+        logging.StreamHandler()
+    ]
+)
+
 logger = logging.getLogger()
 # Leggi il file Excel o CSV
 if len(sys.argv) == 2:
