@@ -88,9 +88,12 @@ class YNetbox(object):
             res['next'] = res_tmp['next']
         return res['results']
 
-    def get_devices(self):
+    def get_devices(self, tenant_id=None):
         LIMIT = 999
-        res = self.get("/dcim/devices", params={"limit": LIMIT})
+        get_params = {"limit": LIMIT}
+        if tenant_id is not None:
+            get_params['tenant_id'] = tenant_id
+        res = self.get("/dcim/devices", params=get_params)
         while res['next'] is not None:
             res_tmp = self.get(url=res['next'], full_url=True)
             res['results'] += res_tmp['results']
@@ -125,7 +128,7 @@ class YNetbox(object):
         else:
             param_str = f"limit={LIMIT}"
 
-        res = self.get("/dcim/interfaces/?param_str")
+        res = self.get("/dcim/interfaces/?"+param_str)
         while res['next'] is not None:
             res_tmp = self.get(url=res['next'], full_url=True)
             res['results'] += res_tmp['results']

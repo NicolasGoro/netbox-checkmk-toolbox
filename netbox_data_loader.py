@@ -24,7 +24,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="[%(levelname)s] %(asctime)s - %(name)s: %(message)s",
     handlers=[
-        logging.FileHandler(filename=os.path.join(cur_dir, "netbox_data_loader.log"), filemode='a+'),
+        logging.FileHandler(filename=os.path.join(cur_dir, "netbox_data_loader.log"), mode='a+'),
         logging.StreamHandler()
     ]
 )
@@ -607,8 +607,8 @@ def main():
         data_fine = device.get("Data fine contratto")
         data_inizio = device.get("Data inizio contratto")
         sev_lvl = str(device.get("Severity device"))
-        if sev_lvl_str in ["1", "2", "3", "4"]:
-            sev_lvl = sev_lvl_str
+        if sev_lvl in ["1", "2", "3", "4"]:
+            sev_lvl = sev_lvl
         else:
             sev_lvl = None
         rma = "Vendor"
@@ -636,7 +636,7 @@ def main():
 
     ## INTERFACCE ##
     logger.info("Creazione delle Interfacce")
-    devices_added = nbox.get_devices()
+    devices_added = nbox.get_devices(tenant_id=tenant_id)
     device_name_id = [{"id": item["id"], "name": item["name"]} for item in devices_added]
 
     for device in device_name_id:
@@ -700,12 +700,12 @@ def main():
         except Exception as e:
             logger.error(f"IP address {address} not created error {e}")
 
-    ips_address = nbox.get_IPs_address()
+    ips_address = nbox.get_IPs_address(tenant_id)
     all_ip_filtered = [{"id": item["id"], "name": item["assigned_object"]["device"]["name"]} for item in ips_address if item["assigned_object"] is not None]
     #all_ip_filtered = [{"id": item["id"], "name": item["assigned_object"]["device"]["name"]} for item in ips_address]
     logger.debug(json.dumps(all_ip_filtered))
 
-    device_now_on_netbox = nbox.get_devices()
+    device_now_on_netbox = nbox.get_devices(tenant_id=tenant_id)
     devices_filtered = [{"id": item["id"], "name": item["name"]} for item in device_now_on_netbox]
     logger.debug(json.dumps(devices_filtered))
 
