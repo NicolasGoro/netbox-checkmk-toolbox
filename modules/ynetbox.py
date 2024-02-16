@@ -130,10 +130,10 @@ class YNetbox(object):
         return self.get("/dcim/device-roles")['results']
 
     def get_devices_net_layer(self):
-        self.get(f"/extras/custom-field-choice-sets/{self.net_layer_cf_id}/choices")['results']
+        return self.get(f"/extras/custom-field-choice-sets/{self.net_layer_cf_id}/choices")['results']
 
     def get_devices_connection_type(self):
-        self.get(f"/extras/custom-field-choice-sets/{self.conn_type_cf_id}/choices")['results']
+        return self.get(f"/extras/custom-field-choice-sets/{self.conn_type_cf_id}/choices")['results']
         
     def get_interfaces(self, site_ids=None):
         LIMIT = 999
