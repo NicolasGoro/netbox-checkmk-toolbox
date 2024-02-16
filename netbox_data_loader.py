@@ -628,11 +628,12 @@ def main():
 
             else:
                 lista_device_non_aggiunti.append(device)
-                # all_devices.remove(device)
+                logger.error(f"error on {name}, device type o manufacturer non validi")
 
         except DuplicateObject:
             logger.info(f"Il device '{name}' già esiste. Ignorato.")
         except Exception as e:
+            logger.exception(f"device creation exception: {e}")
             lista_device_non_aggiunti.append(device)
 
     for elemento in lista_device_non_aggiunti:
