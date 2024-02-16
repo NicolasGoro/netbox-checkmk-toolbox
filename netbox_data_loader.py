@@ -40,12 +40,6 @@ else:
 
 nbox = YNetbox(**conf['netbox'])
 
-# Ottieni gli URL usando le funzioni
-net_layer_url = nbox.base_url + f"/extras/custom-field-choice-sets/{nbox.net_layer_cf_id}/choices"
-conn_type_url = nbox.base_url + f"/extras/custom-field-choice-sets/{nbox.conn_type_cf_id}/choices"
-print("URL per get_devices_net_layer:", net_layer_url)
-print("URL per get_devices_connection_type:", conn_type_url)
-
 # EXCEL
 # Estrazione riga per riga elementi
 def extract_all_objects_row(file_path):
@@ -466,8 +460,6 @@ def main():
 
     # MANUFACTURERS check & diff
 
-
-
     # CHEK DEVICE TYPE
     # NETBOX 
     device_type_nbox = nbox.get_devices_type()
@@ -535,7 +527,7 @@ def main():
     # net_layer -> ID
     filtered_net_layer = [{"id": item["id"], "display": item["display"]} for item in
                           nbox.get_devices_net_layer()]  # Role -> ID
-
+    
     # Plat -> ID
     filtered_platforms = [{"id": item["id"], "name": item["name"]} for item in nbox.get_platforms()]
 
@@ -543,7 +535,6 @@ def main():
     all_dev_type = [{"id": item["id"], "name": item["display"]} for item in nbox.get_devices_type()]
 
     all_conn_type = [{"id": item["id"], "name": item["display"]} for item in nbox.get_devices_connection_type()]
-
     # Funzione per ottenere l'ID del ruolo
 
     lista_device_non_aggiunti = []
