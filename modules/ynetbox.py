@@ -19,11 +19,28 @@ class YNetbox(object):
                         'Authorization': f"Token {token}"}
         self.net_layer_cf_id = None
         self.conn_type_cf_id = None
-        init_cf_ids()
+        self.init_cf_ids()
+        print(self.conn_type_cf_id)
+        print(self.net_layer_cf_id)
 
-    def init_cf_ids(self):
+    #def init_cf_ids(self):
         #vado a settare correttamente self.net_layer_cf_id e self.conn_type_cf_id dopo aver fatto la GET a /api/extras/custom-fields/
+    def init_cf_ids(self):
+        conn_type_cf_id = None
+        net_layer_cf_id = None
 
+        for field in self.get_custom_fields():
+            print(field)
+            if field["display"] == "Connection Type":
+                conn_type_cf_id = field["id"]
+                print(conn_type_cf_id)
+            elif field["display"] == "Net Layer":
+                net_layer_cf_id = field["id"]
+                print(net_layer_cf_id)
+
+        self.conn_type_cf_id = conn_type_cf_id
+        self.net_layer_cf_id = net_layer_cf_id           
+    
     def _request(self, method, url, timeout=10, **kwargs):
         try:
             self.logger.debug(f"{method} {url} request with {kwargs}")
@@ -65,8 +82,7 @@ class YNetbox(object):
     def put(self, url, json, **kwargs):
         return self._request("PUT", url=url, json=json, **kwargs)
 
-    # GET FUNCTIONS
-
+    # GET FUNCTIONS    
     def get_tenants(self):
         LIMIT = 999
         res = self.get("/tenancy/tenants", params={"limit": LIMIT})
@@ -118,6 +134,9 @@ class YNetbox(object):
             res['next'] = res_tmp['next']
         return res['results']
 
+    def get_custom_fields(self):
+        return self.get("/extras/custom-fields/")['results']
+    
     def get_devices_roles(self):
         return self.get("/dcim/device-roles")['results']
 
@@ -125,7 +144,7 @@ class YNetbox(object):
         return self.get(f"/extras/custom-field-choice-sets/{self.net_layer_cf_id}/choices")['results']
 
     def get_devices_connection_type(self):
-        return self.get(f"/extras/custom-field-choice-sets/{self.conn_type_cf_id}}/choices")['results']
+        return self.get(f"/extras/custom-field-choice-sets/{self.conn_type_cf_id}/choices")['results']
 
     def get_interfaces(self, site_ids=None):
         LIMIT = 999
@@ -165,7 +184,7 @@ class YNetbox(object):
             res['results'] += res_tmp['results']
             res['next'] = res_tmp['next']
         return res['results']
-
+    
     # POST FUNCTIONS - Creazione Oggetti
 
     def create_tenant(self, name, description="", comments=""):
