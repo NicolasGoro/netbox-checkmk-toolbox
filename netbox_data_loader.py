@@ -36,10 +36,15 @@ if len(sys.argv) == 2:
 else:
     print(f"Usage: python3 tool.py <filename>")
     print("Filename missing!")
-    path = "file3.xlsx"
+    path = "asonext_techplatform.xlsx"
 
 nbox = YNetbox(**conf['netbox'])
 
+# Ottieni gli URL usando le funzioni
+net_layer_url = nbox.base_url + f"/extras/custom-field-choice-sets/{nbox.net_layer_cf_id}/choices"
+conn_type_url = nbox.base_url + f"/extras/custom-field-choice-sets/{nbox.conn_type_cf_id}/choices"
+print("URL per get_devices_net_layer:", net_layer_url)
+print("URL per get_devices_connection_type:", conn_type_url)
 
 # EXCEL
 # Estrazione riga per riga elementi
