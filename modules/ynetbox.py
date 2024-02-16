@@ -17,6 +17,12 @@ class YNetbox(object):
         self.headers = {'Accept': 'application/json',
                         'Content-Type': 'application/json',
                         'Authorization': f"Token {token}"}
+        self.net_layer_cf_id = None
+        self.conn_type_cf_id = None
+        init_cf_ids()
+
+    def init_cf_ids(self):
+        #vado a settare correttamente self.net_layer_cf_id e self.conn_type_cf_id dopo aver fatto la GET a /api/extras/custom-fields/
 
     def _request(self, method, url, timeout=10, **kwargs):
         try:
@@ -116,10 +122,10 @@ class YNetbox(object):
         return self.get("/dcim/device-roles")['results']
 
     def get_devices_net_layer(self):
-        return self.get("/extras/custom-field-choice-sets/2/choices")['results']
+        return self.get(f"/extras/custom-field-choice-sets/{self.net_layer_cf_id}/choices")['results']
 
     def get_devices_connection_type(self):
-        return self.get("/extras/custom-field-choice-sets/1/choices")['results']
+        return self.get(f"/extras/custom-field-choice-sets/{self.conn_type_cf_id}}/choices")['results']
 
     def get_interfaces(self, site_ids=None):
         LIMIT = 999
