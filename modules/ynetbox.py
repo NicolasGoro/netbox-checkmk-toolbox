@@ -20,26 +20,15 @@ class YNetbox(object):
         self.net_layer_cf_id = None
         self.conn_type_cf_id = None
         self.init_cf_ids()
-        print(self.conn_type_cf_id)
-        print(self.net_layer_cf_id)
 
     #def init_cf_ids(self):
         #vado a settare correttamente self.net_layer_cf_id e self.conn_type_cf_id dopo aver fatto la GET a /api/extras/custom-fields/
     def init_cf_ids(self):
-        conn_type_cf_id = None
-        net_layer_cf_id = None
-
         for field in self.get_custom_fields():
-            print(field)
-            if field["display"] == "Connection Type":
-                conn_type_cf_id = field["id"]
-                print(conn_type_cf_id)
-            elif field["display"] == "Net Layer":
-                net_layer_cf_id = field["id"]
-                print(net_layer_cf_id)
-
-        self.conn_type_cf_id = conn_type_cf_id
-        self.net_layer_cf_id = net_layer_cf_id           
+            if field["display"] == "conn_type Choices":
+                self.conn_type_cf_id = field["id"]
+            elif field["display"] == "net_layer Choices":
+                self.net_layer_cf_id = field["id"]          
     
     def _request(self, method, url, timeout=10, **kwargs):
         try:
@@ -135,17 +124,17 @@ class YNetbox(object):
         return res['results']
 
     def get_custom_fields(self):
-        return self.get("/extras/custom-fields/")['results']
+        return self.get("/extras/custom-field-choice-sets")['results']
     
     def get_devices_roles(self):
         return self.get("/dcim/device-roles")['results']
 
     def get_devices_net_layer(self):
-        return self.get(f"/extras/custom-field-choice-sets/{self.net_layer_cf_id}/choices")['results']
+        self.get(f"/extras/custom-field-choice-sets/{self.net_layer_cf_id}/choices")['results']
 
     def get_devices_connection_type(self):
-        return self.get(f"/extras/custom-field-choice-sets/{self.conn_type_cf_id}/choices")['results']
-
+        self.get(f"/extras/custom-field-choice-sets/{self.conn_type_cf_id}/choices")['results']
+        
     def get_interfaces(self, site_ids=None):
         LIMIT = 999
         if site_ids is not None:
