@@ -1,10 +1,12 @@
 Percorso Master : /home/automation/netbox-checkmk-toolbox
 
+
 NETBOX
 
 Percorso : /home/automation/netbox-checkmk-toolbox/import_netbox
 
 Comando da lanciare per import : python3 netbox_data_loader.py <filename.xlsx/csv>
+
 
 CHECKMK
 
