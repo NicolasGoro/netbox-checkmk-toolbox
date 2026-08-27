@@ -2,3 +2,7 @@
 /*.xlsx
 /*.csv
 /*.log
+*.log
+.idea/
+__pycache__/
+*.pyc
