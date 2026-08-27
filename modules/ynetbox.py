@@ -1,3 +1,4 @@
+import json
 import requests
 import logging
 import urllib3
@@ -21,25 +22,32 @@ class YNetbox(object):
         self.conn_type_cf_id = None
         self.init_cf_ids()
 
-    #def init_cf_ids(self):
-        #vado a settare correttamente self.net_layer_cf_id e self.conn_type_cf_id dopo aver fatto la GET a /api/extras/custom-fields/
     def init_cf_ids(self):
+        # Vado a settare correttamente self.net_layer_cf_id e self.conn_type_cf_id
+        # dopo aver fatto la GET a /api/extras/custom-fields/
         for field in self.get_custom_fields():
             if field["display"] == "conn_type Choices":
                 self.conn_type_cf_id = field["id"]
             elif field["display"] == "net_layer Choices":
-                self.net_layer_cf_id = field["id"]          
-    
+                self.net_layer_cf_id = field["id"]
+
     def _request(self, method, url, timeout=10, **kwargs):
         try:
             self.logger.debug(f"{method} {url} request with {kwargs}")
-            raw_res = requests.request(method=method,
-                                       url=f"{self.base_url}{url}",
-                                       headers=self.headers,
-                                       timeout=timeout,
-                                       verify=False, **kwargs)
+            if kwargs.get("full_url", False) is False:
+                raw_res = requests.request(method=method,
+                                        url=f"{self.base_url}{url}",
+                                        headers=self.headers,
+                                        timeout=timeout,
+                                        verify=False, **kwargs)
 
-            # print(raw_res.text)
+            else:
+                kwargs.pop("full_url")
+                raw_res = requests.request(method=method,
+                                        url=url,
+                                        headers=self.headers,
+                                        timeout=timeout,
+                                        verify=False, **kwargs)
             raw_res.raise_for_status()
 
             if raw_res.status_code != 204:
@@ -48,6 +56,7 @@ class YNetbox(object):
         except requests.HTTPError as he:
             if ((he.response.status_code != 400 or "already exists" not in he.response.text)
                     and not "dcim_device_unique_name_site_tenant" in he.response.text
+                    and not "must make a unique set" in he.response.text  # esclusione errori relativi a POST (in realtà sono avvisi)
                     and not "Duplicate IP address" in he.response.text and not "Related object not found using the provided attributes" in he.response.text):
                 self.logger.exception(
                     f"Error on {method} {url} request with {kwargs}, details: {he} {he.response.text}")
@@ -71,7 +80,7 @@ class YNetbox(object):
     def put(self, url, json, **kwargs):
         return self._request("PUT", url=url, json=json, **kwargs)
 
-    # GET FUNCTIONS    
+    # GET FUNCTIONS
     def get_tenants(self):
         LIMIT = 999
         res = self.get("/tenancy/tenants", params={"limit": LIMIT})
@@ -125,7 +134,7 @@ class YNetbox(object):
 
     def get_custom_fields(self):
         return self.get("/extras/custom-field-choice-sets")['results']
-    
+
     def get_devices_roles(self):
         return self.get("/dcim/device-roles")['results']
 
@@ -134,7 +143,7 @@ class YNetbox(object):
 
     def get_devices_connection_type(self):
         return self.get(f"/extras/custom-field-choice-sets/{self.conn_type_cf_id}/choices")['results']
-        
+
     def get_interfaces(self, site_ids=None):
         LIMIT = 999
         if site_ids is not None:
@@ -142,7 +151,7 @@ class YNetbox(object):
         else:
             param_str = f"limit={LIMIT}"
 
-        res = self.get("/dcim/interfaces/?"+param_str)
+        res = self.get("/dcim/interfaces/?" + param_str)
         while res['next'] is not None:
             res_tmp = self.get(url=res['next'], full_url=True)
             res['results'] += res_tmp['results']
@@ -173,7 +182,16 @@ class YNetbox(object):
             res['results'] += res_tmp['results']
             res['next'] = res_tmp['next']
         return res['results']
-    
+
+    def get_vrfs(self):
+        LIMIT = 999
+        res = self.get("/ipam/vrfs", params={"limit": LIMIT})
+        while res['next'] is not None:
+            res_tmp = self.get(url=res['next'], full_url=True)
+            res['results'] += res_tmp['results']
+            res['next'] = res_tmp['next']
+        return res['results']
+
     # POST FUNCTIONS - Creazione Oggetti
 
     def create_tenant(self, name, description="", comments=""):
@@ -194,13 +212,14 @@ class YNetbox(object):
         }
         return self.post("/dcim/sites/", json=site_data)
 
-    def create_loction(self, name, site_id, tenant_id, snmp_community_location):
+    def create_loction(self, name, site_id, tenant_id, snmp_community_location, description=""):
         location_data = {
             "name": name,
             "slug": name.lower(),
             "site": site_id,
             "status": "active",
             "tenant": tenant_id,
+            "description": description or "",
             "custom_fields": {
                 "snmp_community_location": snmp_community_location
             }
@@ -208,7 +227,8 @@ class YNetbox(object):
         return self.post("/dcim/locations/", json=location_data)
 
     def create_device(self, name, device_id, role_id, tenant_id, platform_id, serial_number, site_id, location_id,
-                      conn_id, snmp_com_device, net_layer_id, data_fine, data_inizio, rma, sla, sev_lvl):
+                      status, conn_id, onsite, snmp_value, snmp_com_device, net_layer_id, data_fine, data_inizio,
+                      rma, sla, sev_lvl, backup_value, istance_number, parent_device=None, agent_type=None):
         device_data = {
             "name": name,
             "device_type": device_id,
@@ -218,17 +238,24 @@ class YNetbox(object):
             "serial": serial_number if not pandas.isna(serial_number) else "",  # string
             "site": site_id,
             "location": location_id,
-            "status": "active",
+            "status": status,
             "custom_fields": {
                 "conn_type": [conn_id] if conn_id else None,
-                "snmp": True,
+                "snmp": snmp_value,
                 "snmp_community_device": snmp_com_device,
                 "net_layer": [net_layer_id] if net_layer_id else None,
                 "end_contract": data_fine,
                 "start_contract": data_inizio,
                 "rma": [rma] if (rma and not pandas.isna(rma)) else None,
                 "sla": [sla] if (sla and not pandas.isna(sla)) else None,
-                "severity_type": sev_lvl if (sev_lvl and not pandas.isna(sev_lvl)) else None
+                "onsite": onsite,
+                "severity_type": sev_lvl if (sev_lvl and not pandas.isna(sev_lvl)) else None,
+                "backup": backup_value,
+                "istance_number": istance_number,
+                # Device Name dell'host "parent" (usato poi da cmk_nbox_push.py
+                # per popolare il campo "Parents" su CheckMK)
+                "parent_device": parent_device,
+                "agent_type": agent_type if agent_type else None,
             }}
         return self.post("/dcim/devices/", json=device_data)
 
@@ -268,7 +295,16 @@ class YNetbox(object):
         }
         return self.post("/dcim/virtual-chassis/", json=vc_data)
 
-    def create_ip_address(self, address, tenant_id, interface_id):
+    def create_vrf(self, name, tenant_id, description=""):
+        vrf_data = {
+            "name": name,
+            "enforce_unique": True,
+            "tenant": tenant_id,
+            "description": description
+        }
+        return self.post("/ipam/vrfs/", json=vrf_data)
+
+    def create_ip_address(self, address, tenant_id, interface_id, vrf_id=None):
         address = f"{address}/32"
         data_ip_addr = {
             "address": address,
@@ -277,9 +313,11 @@ class YNetbox(object):
             "assigned_object_type": "dcim.interface",
             "assigned_object_id": interface_id
         }
+        if vrf_id:
+            data_ip_addr["vrf"] = vrf_id
         return self.post("/ipam/ip-addresses/", json=data_ip_addr)
 
-    # PATCH FUNCTIONS -UPDATE- [ATTENZIONE I DATA SONO UN TYPE LIST]
+    # PATCH FUNCTIONS - UPDATE [ATTENZIONE: I DATA SONO UNA LIST]
 
     def update_tenant(self, tenant_id, name, description="", comments=""):
         tenant_data = [
@@ -305,7 +343,7 @@ class YNetbox(object):
         ]
         return self.patch("/dcim/sites/")
 
-    def update_location(self, location_id, name, site_id, tenant_id, snmp_community_location):
+    def update_location(self, location_id, name, site_id, tenant_id, snmp_community_location, description=""):
         location_data = [
             {
                 "id": location_id,
@@ -314,6 +352,7 @@ class YNetbox(object):
                 "site": site_id,
                 "status": "active",
                 "tenant": tenant_id,
+                "description": description or "",
                 "custom_fields": {
                     "snmp_community_location": snmp_community_location
                 }
@@ -343,7 +382,7 @@ class YNetbox(object):
         return self.patch("/dcim/devices/", json=device_data)
 
     def update_device(self, device_id, name, device_type_id, role_id, tenant_id, platform_id, serial_number, site_id,
-                      location_id, conn_id, snmp_com_device, net_layer_id, data_fine, data_inizio, rma, sla):
+                      location_id, conn_id, snmp_com_device, net_layer_id, data_fine, data_inizio, rma, sla,):
         device_data = [
             {
                 "id": device_id,
